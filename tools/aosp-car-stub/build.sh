@@ -2,10 +2,21 @@
 
 set -e
 
-HERE="$(cd "$(dirname "$0")" && pwd -W)"
+# Windows(Git Bash) 下 javac/jar 需要 C:/... 形式的路径，用 pwd -W；macOS/Linux 的 pwd 无 -W。
+HOST_OS="$(uname -s 2>/dev/null || echo Unknown)"
+case "$HOST_OS" in
+    MINGW*|MSYS*|CYGWIN*)
+        HERE="$(cd "$(dirname "$0")" && pwd -W)"
+        REPO_ROOT="$(cd "$HERE/../.." && pwd -W)"
+        ;;
+    *)
+        HERE="$(cd "$(dirname "$0")" && pwd)"
+        REPO_ROOT="$(cd "$HERE/../.." && pwd)"
+        ;;
+esac
 SRC="$HERE/src"
 OUT="$HERE/out/classes"
-JAR_OUT="$(cd "$HERE/../.." && pwd -W)/third_party/android-car-stub.jar"
+JAR_OUT="$REPO_ROOT/third_party/android-car-stub.jar"
 
 if [ -n "${JAVA_HOME:-}" ]; then
     JAVAC="$JAVA_HOME/bin/javac"
@@ -21,8 +32,8 @@ fi
 
 if [ -z "${ANDROID_JAR:-}" ]; then
     SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
-    if [ -z "$SDK" ] && [ -f "$HERE/../../local.properties" ]; then
-        SDK="$(sed -n 's/^sdk\.dir[[:space:]]*=[[:space:]]*//p' "$HERE/../../local.properties" | tr -d '\r' | head -1)"
+    if [ -z "$SDK" ] && [ -f "$REPO_ROOT/local.properties" ]; then
+        SDK="$(sed -n 's/^sdk\.dir[[:space:]]*=[[:space:]]*//p' "$REPO_ROOT/local.properties" | tr -d '\r' | head -1)"
     fi
     ANDROID_JAR="$SDK/platforms/android-34/android.jar"
 fi
@@ -41,4 +52,4 @@ mkdir -p "$OUT"
 
 ( cd "$OUT" && "$JAR" --create --file "$JAR_OUT" --no-manifest --date=1980-01-01T00:00:02Z \
     $(find android -name '*.class' | sort -f) )
-echo "完成：$JAR_OUT（$("$JAR" tf "$JAR_OUT" | grep -c '\.class$') 个 class）"
+echo "完成：${JAR_OUT}（$("$JAR" tf "$JAR_OUT" | grep -c '\.class$') 个 class）"

@@ -23,13 +23,19 @@ if [ -n "${JAVA_HOME:-}" ]; then
     if command -v cygpath >/dev/null 2>&1 && [[ "$JAVA_HOME" == *\\* ]]; then
         JDK_HOME="$(cygpath -u "$JAVA_HOME")"
     fi
+elif [ -d /d/Tools/Android/jdk-17/jdk-17.0.21+9 ]; then
+    # Windows Git Bash 未设置 JAVA_HOME 时的默认路径。
+    JDK_HOME="/d/Tools/Android/jdk-17/jdk-17.0.21+9"
+elif command -v javap >/dev/null 2>&1; then
+    # macOS/Linux：按 PATH 中的 javap 反推 JDK 根目录。
+    JDK_HOME="$(cd "$(dirname "$(command -v javap)")/.." && pwd)"
 else
     JDK_HOME="/d/Tools/Android/jdk-17/jdk-17.0.21+9"
 fi
 JAVAP="$JDK_HOME/bin/javap"
 JAR_TOOL="$JDK_HOME/bin/jar"
 if [ ! -x "$JAVAP" ]; then
-    echo "错误：找不到 javap（JAVA_HOME=$JDK_HOME）" >&2
+    echo "错误：找不到 javap（JAVA_HOME=${JDK_HOME}）" >&2
     exit 1
 fi
 if [ ! -f "$REF_JAR" ]; then
@@ -37,7 +43,7 @@ if [ ! -f "$REF_JAR" ]; then
     exit 1
 fi
 if [ ! -d "$CAND_DIR" ]; then
-    echo "错误：找不到候选 classes 目录：$CAND_DIR（先运行 build.sh）" >&2
+    echo "错误：找不到候选 classes 目录：${CAND_DIR}（先运行 build.sh）" >&2
     exit 1
 fi
 
@@ -106,11 +112,11 @@ while IFS= read -r rel; do
     if [ -z "$cand_api" ]; then
         case "$ref_hdr" in
             public*|protected*)
-                echo "  [FAIL] $fqcn：候选缺类（参考为 $ref_hdr）"
+                echo "  [FAIL] ${fqcn}：候选缺类（参考为 ${ref_hdr}）"
                 status=1
                 ;;
             *)
-                echo "  [skip] $fqcn：非 public 内部类，候选可缺省（参考为 $ref_hdr）"
+                echo "  [skip] ${fqcn}：非 public 内部类，候选可缺省（参考为 ${ref_hdr}）"
                 ;;
         esac
         continue
@@ -118,7 +124,7 @@ while IFS= read -r rel; do
 
     cand_hdr="$(printf '%s\n' "$cand_api" | sed -n 's/^H|//p' | head -1)"
     if [ "$ref_hdr" != "$cand_hdr" ]; then
-        echo "  [FAIL] $fqcn：类头不一致"
+        echo "  [FAIL] ${fqcn}：类头不一致"
         echo "         参考：$ref_hdr"
         echo "         候选：$cand_hdr"
         status=1
@@ -130,7 +136,7 @@ while IFS= read -r rel; do
     missing="$(comm -23 "$TMP/ref.members" "$TMP/cand.members" || true)"
     extra="$(comm -13 "$TMP/ref.members" "$TMP/cand.members" || true)"
     if [ -n "$missing" ]; then
-        echo "  [FAIL] $fqcn：缺少 public/protected 成员"
+        echo "  [FAIL] ${fqcn}：缺少 public/protected 成员"
         printf '%s\n' "$missing" | sed 's/^/           /'
         missing_members=$((missing_members + $(printf '%s\n' "$missing" | wc -l)))
         status=1
@@ -138,7 +144,7 @@ while IFS= read -r rel; do
         n_extra="$(printf '%s\n' "$extra" | grep -c . || true)"
         extra_members=$((extra_members + n_extra))
         class_ok=$((class_ok + 1))
-        echo "  [OK]   $fqcn（超集新增成员 $n_extra）"
+        echo "  [OK]   ${fqcn}（超集新增成员 ${n_extra}）"
     fi
 done < <(cd "$TMP/ref" && find . -name '*.class' | sort)
 

@@ -8,12 +8,15 @@ APP 的 dex 里虽然仍带着桩类，但运行时类查找顺序 bootclasspath
 它通过 Binder 事务与虚拟车服务（包名 `com.android.car`，见 `tools/android-car-boot/service/`，
 双方共享 `com.bandwa.vcarlib.BootCarProtocol`）通信。
 
+构建脚本已跨平台（Windows Git Bash / macOS Apple Silicon，见 [构建](#构建)）；jar 里只有纯 dex、
+不含 native 库，因此**与设备 ABI 无关**，x86_64 与 arm64-v8a 镜像通用（换工具链版本时大小/sha256 可能不同，见 [产物](#产物)）。
+
 ## 目录结构
 
 ```
 tools/android-car-boot/api/
 ├── src/android/car/...                      # 6 个 Java 源文件（与桩同名、同包、同 ABI）
-├── build.sh                                 # 构建：javac(JDK17,--release 8) -> d8 -> jar
+├── build.sh                                 # 构建：javac(--release 8) -> d8 -> jar（Windows/macOS 自动选择工具链）
 ├── check_abi.sh                             # 与参考桩 jar 的 ABI 兼容性核对
 ├── README.md
 └── build/                                   # 构建产物（git 忽略）
@@ -125,30 +128,38 @@ tools/android-car-boot/api/
 
 ## 构建
 
-Git Bash（Windows）中执行，可重复运行：
+可重复运行，脚本按 `uname` 自动选择 Windows / macOS 工具链：
 
 ```bash
+# Windows（Git Bash）
+bash tools/android-car-boot/api/build.sh
+
+# macOS（Apple Silicon）
 bash tools/android-car-boot/api/build.sh
 ```
 
 脚本流程：清空 `build/` → `javac --release 8 -classpath <android.jar>` 编译
-`api/src` + `tools/android-car-boot/protocol/java`（`BootCarProtocol`）→ `d8.bat --min-api 24 --lib <android.jar>`
-生成 `classes.dex` → `jar --create --no-manifest` 把 `classes.dex` 放在 jar 根 → 打印 jar 大小、
-dex 类清单，并自动跑一次 `check_abi.sh`。
+`api/src` + `tools/android-car-boot/protocol/java`（`BootCarProtocol`）→ d8（Windows `d8.bat`，
+macOS POSIX `d8`）`--min-api 24 --lib <android.jar>` 生成 `classes.dex` → `jar --create --no-manifest`
+把 `classes.dex` 放在 jar 根 → 打印 jar 大小、dex 类清单，并自动跑一次 `check_abi.sh`。
 
 默认工具链（均可用环境变量覆盖：`JAVA_HOME`、`ANDROID_HOME`/`ANDROID_SDK_ROOT`、`ANDROID_JAR`、
 `D8`、`DEXDUMP`）：
 
-- JDK 17：`<jdk-17>`
-- android.jar：`<sdk>\platforms\android-34\android.jar`
-- d8/dexdump：`<sdk>\build-tools\34.0.0\`
+- JDK：`JAVA_HOME` 优先，缺失时从 PATH 的 `javac` 反推（Windows 与 macOS 均为 JDK 17）
+- android.jar：`<sdk>/platforms/android-34/android.jar`
+- d8/dexdump：`<sdk>/build-tools/34.0.0/`（缺失时脚本报错，可用 `D8`/`DEXDUMP` 覆盖）
+
+macOS 注意：脚本用 BSD `stat -f %z` 取文件大小。
 
 ### 产物
 
 - 路径：`tools/android-car-boot/api/build/android.car.jar`
-- 大小：约 **12341 字节**（jar 根仅 `classes.dex`；dex 037，16 个类）
-- sha256：`CB71EC777CBA3566BA3127E3DCD8134BC3F4AAD176CC9DCEBB5BDEFF6BF1D42B`（JDK 17 +
-  build-tools 34.0.0 下构建，可用于设备侧比对）
+- 大小：**12,341 字节**（jar 根仅 `classes.dex`；dex 037，16 个类）
+- sha256：`cb71ec777cba3566ba3127e3dcd8134bc3f4aad176cc9dcebb5bdeff6bf1d42b`（JDK 17 +
+  build-tools 34.0.0 下构建，与 Windows 产物相同，可用于设备侧比对；换工具链版本则可能不同）
+- 注入脚本（`avd/provision.py`）始终信任**本地实际文件**的 sha256，只在日志里把与基线指纹的差异
+  作为提示打印，不会阻断构建或注入。
 - `build/` 被 `api/.gitignore` 忽略，属构建产物，不入库。
 
 ## ABI 兼容性核对
@@ -162,7 +173,8 @@ dex 类清单，并自动跑一次 `check_abi.sh`。
 bash tools/android-car-boot/api/check_abi.sh
 ```
 
-可选参数：`check_abi.sh [参考桩 jar] [classes 目录]`。
+可选参数：`check_abi.sh [参考桩 jar] [classes 目录]`。Windows（Git Bash）与 macOS 上都能跑
+（优先用 `JAVA_HOME` 下的 `javap`；Windows 由 Git Bash 把 `bin/javap` 解析为 `javap.exe`）。
 
 结果：
 
