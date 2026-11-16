@@ -29,7 +29,7 @@ PSA 工具箱是一个运行在标致 / 雪铁龙车机（Android 9）上的系�
 
 ## 功能特性
 
-> 本仓库是 [band-wa/psa-toolbox](https://github.com/band-wa/psa-toolbox) 的衍生版本（GPL-3.0），
+> 本项目以 GPL-3.0 开源，早期版本由 [bandwa](https://github.com/band-wa/psa-toolbox) 等作者开发。
 > 在原有 9 个模块之外**新增「按键映射」「应用管理」两个页面**，并把按键映射的注入载荷
 > 并入工具箱自己的「修复PSA工具箱」链路。改动清单见 [docs/修改说明.md](docs/修改说明.md)。
 
@@ -47,7 +47,7 @@ PSA 工具箱是一个运行在标致 / 雪铁龙车机（Android 9）上的系�
 | **应用管理** | 列出车机自带关键应用与已装第三方应用，点行展开清缓存 / 清数据 / 卸载（更新），扫码无线安装 APK |
 | **维护诊断** | 车况只读展示（VIN / 总里程 / 油量 / 续航 / 瞬时油耗 / 转角 / 车速 / 档位）、仅解锁后备箱、重载 U 盘、存储清理与白名单、内存清理与名单、崩溃与诊断包、核心件修复 |
 | **专家模式** | 兼容模式、新装应用自动赋权、MTK 日志开关、开机脚本、开机自启动管理（可选「不进界面」后台唤醒）、工程模式入口 |
-| **关于软件** | 版本信息、检查更新、GPL-3.0 许可证、上游版权与致谢、贡献者、赞赏码 |
+| **关于软件** | 版本信息、检查更新、版权与致谢、贡献者、赞赏码 |
 
 ## 界面预览
 
@@ -181,7 +181,7 @@ psa.shafaEndpoint=https://example.com/shafa/downloadurl
 
 #### 本仓库的做法：用 GitHub raw 直链
 
-本 fork 把在线文件放在仓库的 [`ota/`](ota/) 目录，构建时指向 raw 直链即可（`local.properties` 不入库）：
+我们把在线文件放在仓库的 [`ota/`](ota/) 目录，构建时指向 raw 直链即可（`local.properties` 不入库）：
 
 ```properties
 psa.otaBase=https://raw.githubusercontent.com/C19991221/psa-toolbox-mapping/main/ota
@@ -270,16 +270,16 @@ Copyright (C) 2023-2026 bandwa contributors
 
 第三方依赖遵循各自许可证：AndroidX / Compose、smali、zipflinger、apksig、NanoHTTPD、OkHttp、ZXing 等为宽松许可证，可与 GPL-3.0 兼容。
 
-### 本衍生版本的修改声明
+### 版本改动记录
 
-本仓库（`C19991221/psa-toolbox-mapping`）是上述项目的**衍生作品**，同样以 GPL-3.0 发布：
+本项目早期版本由 bandwa 等作者开发，**我们在此基础上继续维护**，改动同样以 GPL-3.0 发布：
 
 - **修改日期**：2026-11-16
 - **修改内容**：新增「按键映射」「应用管理」两个页面；把按键映射的注入载荷并入「修复PSA工具箱」链路；
   界面重做（菜单分组、四级字号、深浅双主题）；拆除大面积阴影修掉滑动掉帧；开机拉起可选不进界面。
   完整清单见 [docs/修改说明.md](docs/修改说明.md)。
 - **声明位置**：本 README、[docs/修改说明.md](docs/修改说明.md)、以及 App 内「关于软件」页（`LegalNotices.MODIFIED_NOTICE`）。
-- **上游版权**：`© 2025 bandwa, YC-Tan, ningning21 and fingdo 版权所有`（原样保留在 App 关于页）。
+- **原版权声明**：`© 2025 bandwa, YC-Tan, ningning21 and fingdo 版权所有`（原样保留在 App 关于页）。
 
 ## 免责声明
 
