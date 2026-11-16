@@ -1,24 +1,28 @@
 pluginManagement {
     repositories {
-        maven(url = "https://maven.aliyun.com/repository/google")
+        if (System.getenv("CI") == null) {
+            maven(url = "https://maven.aliyun.com/repository/google")
+            maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
+            maven { url = uri("https://maven.aliyun.com/repository/central") }
+        }
         google()
         gradlePluginPortal()
         mavenCentral()
         maven(url = "https://jitpack.io")
-        maven { url = uri("https://maven.aliyun.com/repository/central") }
-        maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
     }
 }
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        maven(url = "https://maven.aliyun.com/repository/google")
-        maven(url = "https://maven.aliyun.com/repository/public")
+        if (System.getenv("CI") == null) {
+            maven(url = "https://maven.aliyun.com/repository/google")
+            maven(url = "https://maven.aliyun.com/repository/public")
+            maven { url = uri("https://maven.aliyun.com/repository/central") }
+        }
         google()
         gradlePluginPortal()
         mavenCentral()
         maven(url = "https://jitpack.io")
-        maven { url = uri("https://maven.aliyun.com/repository/central") }
         maven { url = uri("https://artifact.umeng.com/repository/sdk") }
     }
 }
