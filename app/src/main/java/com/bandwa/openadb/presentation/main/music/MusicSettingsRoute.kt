@@ -36,6 +36,11 @@ import com.bandwa.openadb.presentation.ui.LiquidProgressDialog
 import com.bandwa.openadb.presentation.ui.PSAHelperThemePreview
 import com.bandwa.openadb.preview.CombinedThemePreviews
 
+// 多媒体插件暂时没有可分发安装包（2026-11-16）：ota/tools/mediaplugin/ 还是空的，
+// 点「安装多媒体插件」只会下到 404。整个入口先藏起来，包补上后把这里改回 true 即可。
+// ViewModel 的 installMediaPlugin() 与远程地址常量保持不动。
+private const val SHOW_MEDIA_PLUGIN = false
+
 @Composable
 fun AppsSettingsRoute(
     viewModel: MusicSettingsViewModel = hiltViewModel(),
@@ -166,13 +171,15 @@ fun AppsSettingsScreen(
         }
 
         // 音乐按键的绑定已合并到「按键映射」页统一管理（2026-11-16）。
-        SelectionText(
-            modifier = Modifier.padding(top = 32.dp),
-            text = "多媒体插件"
-        )
+        if (SHOW_MEDIA_PLUGIN) {
+            SelectionText(
+                modifier = Modifier.padding(top = 32.dp),
+                text = "多媒体插件"
+            )
 
-        TextButton(text = "安装多媒体插件") {
-            showMediaPluginConfirm = true
+            TextButton(text = "安装多媒体插件") {
+                showMediaPluginConfirm = true
+            }
         }
     }
 }
