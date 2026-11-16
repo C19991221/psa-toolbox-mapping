@@ -40,6 +40,9 @@ import com.bandwa.openadb.preview.CombinedThemePreviews
 // 点「安装多媒体插件」只会下到 404。整个入口先藏起来，包补上后把这里改回 true 即可。
 // ViewModel 的 installMediaPlugin() 与远程地址常量保持不动。
 private const val SHOW_MEDIA_PLUGIN = false
+// 车上没有雪铁龙的 HiCar 修复包（2026-11-16）：按钮先藏起来，避免点了下不到东西。
+// ViewModel 的 fixHiCar("citroen") 分支与 citroen 的两个远程地址常量保持不动。
+private const val SHOW_HICAR_CITROEN = false
 
 @Composable
 fun AppsSettingsRoute(
@@ -131,7 +134,8 @@ fun AppsSettingsScreen(
             text = "修复Hicar/Carlife方控",
             showInfoButton = true,
             infoClickListen = {
-                infoDialogContent = "点击后会自动下载修复了方控和解锁60帧版本的原厂修改版Hicar/Carlife\n\n雪铁龙版本由车友 L 制作"
+                infoDialogContent = "点击后会自动下载修复了方控和解锁60帧版本的原厂修改版Hicar/Carlife" +
+                    if (SHOW_HICAR_CITROEN) "\n\n雪铁龙版本由车友 L 制作" else ""
             }
         )
 
@@ -147,14 +151,16 @@ fun AppsSettingsScreen(
                 }
             }
 
-            TextButton(modifier = Modifier.padding(start = 56.dp), text = "修复Hicar方控 [雪铁龙]") {
-                val currentTime = System.currentTimeMillis()
+            if (SHOW_HICAR_CITROEN) {
+                TextButton(modifier = Modifier.padding(start = 56.dp), text = "修复Hicar方控 [雪铁龙]") {
+                    val currentTime = System.currentTimeMillis()
 
-                if (currentTime - lastClickTime > debounceInterval) {
-                    lastClickTime = currentTime
-                    fixHiCar("citroen")
-                } else {
-                    Toast.makeText(context, "慢点按，别这么快", Toast.LENGTH_LONG).show()
+                    if (currentTime - lastClickTime > debounceInterval) {
+                        lastClickTime = currentTime
+                        fixHiCar("citroen")
+                    } else {
+                        Toast.makeText(context, "慢点按，别这么快", Toast.LENGTH_LONG).show()
+                    }
                 }
             }
 
