@@ -9,10 +9,17 @@
 | `mediaplugin/mediaplugin.apk` | `com.cusc.media` | 音乐助手 → 安装多媒体插件 |
 | `carlife/carlife_fix.apk` | `com.baidu.carlifevehicle` | 音乐助手 → 修复Carlife方控 |
 
-## 现在是空的（预期行为）
+## 当前状态
 
-这三个包的本体目前**没有**，所以 `music.hicar.*` / `mediaplugin.*` / `carlife.*` 这四条
-下载链路即使地址配好了也会下载失败。补齐办法只有一个：连上车机，把**已经修好的**那三个应用拉下来。
+| 目录 | 状态 |
+| --- | --- |
+| `hicar/` | ✅ 已补：`hicar_fix.apk` 8,405,924 B / versionName `11.5 fix2` / md5 `287d99d50f581792d292a9060a118ee4` |
+| `carlife/` | ✅ 已补：`carlife_fix.apk` 7,295,261 B / versionName `4.4.4 fix4` / md5 `50a7f977f16c645ddef448c2173d4def`（含「修改 Carlife 分辨率」入口 `com.baidu.carlifevehicle/.SettingsActivity`） |
+| `hicar/citroen/` | ⬜ 空：车上没有雪铁龙的修复包，界面入口已隐藏 |
+| `mediaplugin/` | ⬜ 空：暂时没有可提取的修复版，界面入口已隐藏 |
+
+两个已补的包是 2026-11-16 从实车（408 / `3VS121`）`adb pull` 出来的**已修复版**，不是我们做的。
+仍需补齐（或恢复界面入口）的是雪铁龙 HiCar 与多媒体插件。
 
 ```powershell
 adb connect <车机IP>:5555
