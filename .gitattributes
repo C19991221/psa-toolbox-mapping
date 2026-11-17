@@ -5,3 +5,15 @@
 # 一旦检出成 CRLF，锚点会静默失效（不报错、就是不注入），所以强制 LF。
 app/src/main/assets/modapk/**/*.smali text eol=lf
 app/src/main/assets/modapk/**/config.json text eol=lf
+
+# 在线更新的元数据按行读取：lasted_version 要与 versionName 做字符串相等比较，
+# lasted_md5 要拿去比对下载下来的包。检出成 CRLF 会多出 \r（App 侧 trim 掉才侥幸没事），
+# 所以这些文本文件强制 LF。注意 **只列文本**：ota/ 下还有几个几十 MB 的 APK，
+# 一旦被 `ota/** text` 命中就会被当作文本做行尾转换，包直接报废。
+ota/**/*.md text eol=lf
+ota/**/*.py text eol=lf
+ota/**/*.html text eol=lf
+ota/**/*_version text eol=lf
+ota/**/*_md5 text eol=lf
+ota/**/lasted_info text eol=lf
+ota/**/*.apk binary
