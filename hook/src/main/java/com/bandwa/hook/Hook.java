@@ -24,10 +24,15 @@ public final class Hook {
      * 注入层的版本。改注入内容（比如加按键映射的 psaHandle 载荷）就要 +1：
      * 已经打过补丁的车机会因为上报的版本与这里不一致而重新打补丁。
      */
-    public static final String VERSION = "5";
-    public static final String LAUNCHER_VERSION = "5";
+    public static final String VERSION = "6";
+    public static final String LAUNCHER_VERSION = "6";
 
     private static final String VENDOR_BCALL_PROP = "tbox.bcall.running";
+    private static final String PROP_NAVI_KEEP = "persist.psa.navi.keep";
+    private static final String PROP_VOLUME_NAV = "persist.psa.volume.nav";
+    private static final String SETTING_NAV_PROMPT = "diplay_nav_prompt";
+    private static final String PKG_AMAP_AUTO = "com.autonavi.amapauto";
+    public static final String PKG_DIPLAY = "com.shihab.diplay";
     private static final String DEFAULT_WALLPAPER_PATH = "/storage/emulated/0/launcherPic/wallpaper.png";
     private static final int MAX_PENDING_ACTIONS = 16;
     private static final long PENDING_TIMEOUT_MS = 1500;
@@ -110,6 +115,42 @@ public final class Hook {
 
     public static boolean isBcallRunning() {
         return getPropBool(VENDOR_BCALL_PROP) || isHvacForeground();
+    }
+
+    /** 开关：保持仪表投屏不被高德空报文清除。默认关闭 = 原厂行为。 */
+    public static boolean isNaviKeep() {
+        return "1".equals(getProp(PROP_NAVI_KEEP, "0"));
+    }
+
+    /** 开关：导航播报期间中控旋钮调导航音量。默认关闭 = 原厂行为。 */
+    public static boolean isVolumeFollowNav() {
+        return "1".equals(getProp(PROP_VOLUME_NAV, "0"));
+    }
+
+    /**
+     * 把「导航播报中的第三方客户端」冒充成高德，让 misc 走导航音量组。
+     *
+     * 只在客户端写入了 Settings.Global 的 diplay_nav_prompt=1 时生效；
+     * 任何异常或条件不满足都原样返回，绝不改变原厂判断。
+     */
+    public static String mapNavPkg(String focusPkg) {
+        try {
+            if (focusPkg == null || !isVolumeFollowNav()) {
+                return focusPkg;
+            }
+            if (!"com.shihab.diplay".equals(focusPkg)) {
+                return focusPkg;
+            }
+            Context ctx = appContext;
+            if (ctx == null) {
+                return focusPkg;
+            }
+            int flag = android.provider.Settings.Global.getInt(
+                    ctx.getContentResolver(), SETTING_NAV_PROMPT, 0);
+            return flag == 1 ? PKG_AMAP_AUTO : focusPkg;
+        } catch (Throwable t) {
+            return focusPkg;
+        }
     }
 
     private static boolean getPropBool(String key) {

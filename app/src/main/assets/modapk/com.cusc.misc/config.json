@@ -171,6 +171,72 @@
           "skipIfContains": "# PSA-MARK-BOOT"
         }
       ]
+    },
+    {
+      "filePath": "smali/com/cusc/misc/observer/NoticeNavEmitter$4.smali",
+      "operations": [
+        {
+          "type": "replaceValueIfExists",
+          "skipIfContains": "# PSA-MARK-NAVKEEP",
+          "checkValue": "    invoke-virtual {v1}, Lcom/cusc/misc/nav/NavBean;->getNextRoadName()Ljava/lang/String;\n\n    move-result-object v2\n\n    const/16 v3, 0x10\n\n    const/4 v10, 0x0\n\n    if-nez v2, :cond_4\n",
+          "oldValue": "    invoke-virtual {v1}, Lcom/cusc/misc/nav/NavBean;->getNextRoadName()Ljava/lang/String;\n\n    move-result-object v2\n\n    const/16 v3, 0x10\n\n    const/4 v10, 0x0\n\n    if-nez v2, :cond_4\n",
+          "newValue": "    invoke-virtual {v1}, Lcom/cusc/misc/nav/NavBean;->getNextRoadName()Ljava/lang/String;\n\n    move-result-object v2\n\n    const/16 v3, 0x10\n\n    const/4 v10, 0x0\n\n    if-nez v2, :cond_4\n\n# PSA-MARK-NAVKEEP\n    invoke-static {}, Lcom/bandwa/hook/Hook;->isNaviKeep()Z\n\n    move-result v2\n\n    if-eqz v2, :psa_nav_clear\n\n    return-void\n\n    :psa_nav_clear\n"
+        },
+        {
+          "type": "replaceValueIfExists",
+          "skipIfContains": "# PSA-MARK-NAVKEEP",
+          "checkValue": "    invoke-virtual {v1}, Lcom/cusc/misc/nav/NavBean;->getNextRoadName()Ljava/lang/String;\n\n    move-result-object v2\n\n    if-nez v2, :cond_3\n",
+          "oldValue": "    invoke-virtual {v1}, Lcom/cusc/misc/nav/NavBean;->getNextRoadName()Ljava/lang/String;\n\n    move-result-object v2\n\n    if-nez v2, :cond_3\n",
+          "newValue": "    invoke-virtual {v1}, Lcom/cusc/misc/nav/NavBean;->getNextRoadName()Ljava/lang/String;\n\n    move-result-object v2\n\n    if-nez v2, :cond_3\n\n# PSA-MARK-NAVKEEP\n    invoke-static {}, Lcom/bandwa/hook/Hook;->isNaviKeep()Z\n\n    move-result v2\n\n    if-eqz v2, :psa_nav_clear\n\n    return-void\n\n    :psa_nav_clear\n"
+        },
+        {
+          "type": "replaceValueIfExists",
+          "skipIfContains": "# PSA-MARK-NAVKEEP",
+          "checkValue": "    invoke-virtual {v1}, Lcom/cusc/misc/nav/NavBean;->getNextRoadName()Ljava/lang/String;\n\n    move-result-object v2\n\n    const/4 v3, 0x0\n\n    if-nez v2, :cond_3\n",
+          "oldValue": "    invoke-virtual {v1}, Lcom/cusc/misc/nav/NavBean;->getNextRoadName()Ljava/lang/String;\n\n    move-result-object v2\n\n    const/4 v3, 0x0\n\n    if-nez v2, :cond_3\n",
+          "newValue": "    invoke-virtual {v1}, Lcom/cusc/misc/nav/NavBean;->getNextRoadName()Ljava/lang/String;\n\n    move-result-object v2\n\n    const/4 v3, 0x0\n\n    if-nez v2, :cond_3\n\n# PSA-MARK-NAVKEEP\n    invoke-static {}, Lcom/bandwa/hook/Hook;->isNaviKeep()Z\n\n    move-result v2\n\n    if-eqz v2, :psa_nav_clear\n\n    return-void\n\n    :psa_nav_clear\n"
+        },
+        {
+          "type": "replaceValueIfExists",
+          "skipIfContains": "# PSA-MARK-NAVKEEP",
+          "checkValue": "    invoke-virtual {v1}, Lcom/cusc/misc/nav/NavBean;->getNextRoadName()Ljava/lang/String;\n\n    move-result-object v2\n\n    const/16 v4, 0x10\n\n    const/4 v10, 0x0\n\n    if-nez v2, :cond_4\n",
+          "oldValue": "    invoke-virtual {v1}, Lcom/cusc/misc/nav/NavBean;->getNextRoadName()Ljava/lang/String;\n\n    move-result-object v2\n\n    const/16 v4, 0x10\n\n    const/4 v10, 0x0\n\n    if-nez v2, :cond_4\n",
+          "newValue": "    invoke-virtual {v1}, Lcom/cusc/misc/nav/NavBean;->getNextRoadName()Ljava/lang/String;\n\n    move-result-object v2\n\n    const/16 v4, 0x10\n\n    const/4 v10, 0x0\n\n    if-nez v2, :cond_4\n\n# PSA-MARK-NAVKEEP\n    invoke-static {}, Lcom/bandwa/hook/Hook;->isNaviKeep()Z\n\n    move-result v2\n\n    if-eqz v2, :psa_nav_clear\n\n    return-void\n\n    :psa_nav_clear\n"
+        },
+        {
+          "type": "replaceValueIfExists",
+          "skipIfContains": "# PSA-MARK-NAVKEEP",
+          "checkValue": "    invoke-virtual {v1}, Lcom/cusc/misc/nav/NavBean;->getNextRoadName()Ljava/lang/String;\n\n    move-result-object v2\n\n    const/16 v3, 0x9\n\n    const/16 v10, 0x10\n\n    const/4 v11, 0x0\n\n    if-nez v2, :cond_4\n",
+          "oldValue": "    invoke-virtual {v1}, Lcom/cusc/misc/nav/NavBean;->getNextRoadName()Ljava/lang/String;\n\n    move-result-object v2\n\n    const/16 v3, 0x9\n\n    const/16 v10, 0x10\n\n    const/4 v11, 0x0\n\n    if-nez v2, :cond_4\n",
+          "newValue": "    invoke-virtual {v1}, Lcom/cusc/misc/nav/NavBean;->getNextRoadName()Ljava/lang/String;\n\n    move-result-object v2\n\n    const/16 v3, 0x9\n\n    const/16 v10, 0x10\n\n    const/4 v11, 0x0\n\n    if-nez v2, :cond_4\n\n# PSA-MARK-NAVKEEP\n    invoke-static {}, Lcom/bandwa/hook/Hook;->isNaviKeep()Z\n\n    move-result v2\n\n    if-eqz v2, :psa_nav_clear\n\n    return-void\n\n    :psa_nav_clear\n"
+        }
+      ]
+    },
+    {
+      "filePath": "smali/com/cusc/misc/observer/KeyEventEmitter.smali",
+      "operations": [
+        {
+          "type": "replaceValueIfExists",
+          "skipIfContains": "# PSA-MARK-VOLMAP",
+          "checkValue": "    iget-object v0, p0, Lcom/cusc/misc/observer/KeyEventEmitter;->mContext:Landroid/content/Context;\n\n    invoke-static {v0}, Lcom/android/settingslib/media/AudioManagerWrapper;->getAudioFocusPkg(Landroid/content/Context;)Ljava/lang/String;\n\n    move-result-object v0\n\n    const-string v3, \"hicar.voice.state\"\n",
+          "oldValue": "    iget-object v0, p0, Lcom/cusc/misc/observer/KeyEventEmitter;->mContext:Landroid/content/Context;\n\n    invoke-static {v0}, Lcom/android/settingslib/media/AudioManagerWrapper;->getAudioFocusPkg(Landroid/content/Context;)Ljava/lang/String;\n\n    move-result-object v0\n\n    const-string v3, \"hicar.voice.state\"\n",
+          "newValue": "    iget-object v0, p0, Lcom/cusc/misc/observer/KeyEventEmitter;->mContext:Landroid/content/Context;\n\n    invoke-static {v0}, Lcom/android/settingslib/media/AudioManagerWrapper;->getAudioFocusPkg(Landroid/content/Context;)Ljava/lang/String;\n\n    move-result-object v0\n\n    # PSA-MARK-VOLMAP\n    invoke-static {v0}, Lcom/bandwa/hook/Hook;->mapNavPkg(Ljava/lang/String;)Ljava/lang/String;\n\n    move-result-object v0\n\n    const-string v3, \"hicar.voice.state\"\n"
+        },
+        {
+          "type": "replaceValueIfExists",
+          "skipIfContains": "# PSA-MARK-VOLMAP",
+          "checkValue": "    iget-object v0, p0, Lcom/cusc/misc/observer/KeyEventEmitter;->mAudioManager:Lcom/android/car/manager/CarAudioManager;\n\n    invoke-virtual {v0}, Lcom/android/car/manager/CarAudioManager;->getAudioFocusPackage()Ljava/lang/String;\n\n    move-result-object v0\n",
+          "oldValue": "    iget-object v0, p0, Lcom/cusc/misc/observer/KeyEventEmitter;->mAudioManager:Lcom/android/car/manager/CarAudioManager;\n\n    invoke-virtual {v0}, Lcom/android/car/manager/CarAudioManager;->getAudioFocusPackage()Ljava/lang/String;\n\n    move-result-object v0\n",
+          "newValue": "    iget-object v0, p0, Lcom/cusc/misc/observer/KeyEventEmitter;->mAudioManager:Lcom/android/car/manager/CarAudioManager;\n\n    invoke-virtual {v0}, Lcom/android/car/manager/CarAudioManager;->getAudioFocusPackage()Ljava/lang/String;\n\n    move-result-object v0\n\n    # PSA-MARK-VOLMAP\n    invoke-static {v0}, Lcom/bandwa/hook/Hook;->mapNavPkg(Ljava/lang/String;)Ljava/lang/String;\n\n    move-result-object v0\n"
+        },
+        {
+          "type": "replaceValueIfExists",
+          "skipIfContains": "# PSA-MARK-VOLMAP",
+          "checkValue": "    iget-object v0, p0, Lcom/cusc/misc/observer/KeyEventEmitter;->mContext:Landroid/content/Context;\n\n    invoke-static {v0}, Lcom/android/settingslib/media/AudioManagerWrapper;->getAudioFocusPkg(Landroid/content/Context;)Ljava/lang/String;\n\n    move-result-object v0\n\n    const-string v3, \"hicar.phone.calling\"\n",
+          "oldValue": "    iget-object v0, p0, Lcom/cusc/misc/observer/KeyEventEmitter;->mContext:Landroid/content/Context;\n\n    invoke-static {v0}, Lcom/android/settingslib/media/AudioManagerWrapper;->getAudioFocusPkg(Landroid/content/Context;)Ljava/lang/String;\n\n    move-result-object v0\n\n    const-string v3, \"hicar.phone.calling\"\n",
+          "newValue": "    iget-object v0, p0, Lcom/cusc/misc/observer/KeyEventEmitter;->mContext:Landroid/content/Context;\n\n    invoke-static {v0}, Lcom/android/settingslib/media/AudioManagerWrapper;->getAudioFocusPkg(Landroid/content/Context;)Ljava/lang/String;\n\n    move-result-object v0\n\n    # PSA-MARK-VOLMAP\n    invoke-static {v0}, Lcom/bandwa/hook/Hook;->mapNavPkg(Ljava/lang/String;)Ljava/lang/String;\n\n    move-result-object v0\n\n    const-string v3, \"hicar.phone.calling\"\n"
+        }
+      ]
     }
   ],
   "injections": [

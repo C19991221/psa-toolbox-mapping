@@ -11,6 +11,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,6 +23,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bandwa.openadb.component.PageTitle
 import com.bandwa.openadb.component.SelectionText
+import com.bandwa.openadb.component.SwitchGroup
 import com.bandwa.openadb.component.TextButton
 import com.bandwa.openadb.presentation.ui.AppTheme
 import com.bandwa.openadb.presentation.ui.LiquidDialog
@@ -34,9 +36,13 @@ fun NaviSettingsRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    // 注入是异步的：每次回到本页都重读一次，否则注入完看到还是旧的「灰」。
+    LaunchedEffect(Unit) { viewModel.refresh() }
+
     NaviSettingsScreen(
         uiState = uiState,
         onActivateAmap = viewModel::activateAmap,
+        onNaviKeepChange = viewModel::setNaviKeep,
     )
 }
 
@@ -44,6 +50,7 @@ fun NaviSettingsRoute(
 fun NaviSettingsScreen(
     uiState: NaviSettingsUIState,
     onActivateAmap: () -> Unit,
+    onNaviKeepChange: (Boolean) -> Unit = {},
 ) {
     val scrollState = rememberScrollState()
 
@@ -109,6 +116,40 @@ fun NaviSettingsScreen(
             text = "激活高德")
         TextButton(text = "尝试激活高德") {
             showActivationConfirm = true
+        }
+
+        SelectionText(
+            modifier = Modifier.padding(top = 40.dp).wrapContentSize(),
+            text = "仪表投屏",
+            showInfoButton = true,
+            infoClickListen = {
+                infoDialogContent = "车机高德即使没在导航，也会每秒发一条空的导航报文。" +
+                    "公共服务会把它当成「仪表清屏」指令写进仪表，于是第三方导航投出去的画面被每秒清一次，仪表一直闪回原厂罗盘。\n\n" +
+                    "打开这个开关后，空报文不再变成清屏指令，第三方导航（DiPlay / CarLife / HiCar）投到仪表的画面就能稳定显示。\n\n" +
+                    "高德自己退出导航时的清屏不受影响，导航过程中也不会被打断。\n\n" +
+                    "开关默认关闭：关着的时候车机行为与出厂完全一致。"
+            }
+        )
+
+        if (uiState.naviKeepAvailable) {
+            SwitchGroup(
+                check = uiState.naviKeep,
+                title = "保持仪表投屏，不被高德空报文清掉",
+                description = if (uiState.naviKeep) {
+                    "已开启：第三方导航的画面不会再被每秒清屏"
+                } else {
+                    "已关闭：与原厂行为一致"
+                },
+                onCheckedChange = onNaviKeepChange,
+            )
+        } else {
+            SwitchGroup(
+                check = false,
+                title = "保持仪表投屏，不被高德空报文清掉",
+                description = "不可用：公共服务还没有注入这一条补丁，请先点「维护诊断 → 修复PSA工具箱」",
+                isEnable = false,
+                onCheckedChange = {},
+            )
         }
 
         // 导航按键的绑定已合并到「按键映射」页统一管理（2026-11-16）。

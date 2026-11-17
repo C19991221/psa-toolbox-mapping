@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.text.TextUtils
+import com.bandwa.openadb.util.apktools.ApkInspector
 
 /**
  * 按键映射（原按键映射软件）并进来之后需要的那几个「车机侧小开关」与身份信息。
@@ -18,6 +19,27 @@ object PsaExt {
 
     /** 车机自带的工程模式界面（`com.cusc.misc` 里的 Activity）。 */
     const val MISC_DEBUG_ACTIVITY = "com.cusc.misc.view.activity.DebugActivity"
+
+    /**
+     * 仪表投屏不被高德空报文清除。必须与 `hook/Hook.java` 里的同名常量保持一致。
+     *
+     * 默认关：关着的时候 misc 走的是原厂那条路，行为与原厂逐字节等价。
+     */
+    const val PROP_NAVI_KEEP = "persist.psa.navi.keep"
+
+    /**
+     * 导航播报时中控旋钮调导航音量（仅 DiPlay 客户端）。同样必须与 Hook.java 一致。
+     */
+    const val PROP_VOLUME_NAV = "persist.psa.volume.nav"
+
+    /**
+     * 两个补丁在 dex 里的方法名，用来判断「注入时这一条到底打没打上」。
+     *
+     * 只查方法名而不是注释：smali 注释不会进 dex 字符串表。这两个名字在
+     * 我们注入之外的地方不存在，所以命中就等于补丁在。
+     */
+    private const val MARK_NAVI_KEEP = "isNaviKeep"
+    private const val MARK_VOLUME_NAV = "mapNavPkg"
 
     const val PKG_MISC = "com.cusc.misc"
     const val PKG_MEDIA = "com.cusc.media"
@@ -99,6 +121,42 @@ object PsaExt {
         )
         true
     }.getOrDefault(false)
+
+    /* ---------------- 公共服务注入层里的两个开关 ---------------- */
+
+    /**
+     * 开关现在的值。属性没写过 ⇒ false（与原厂一致）。
+     */
+    fun naviKeepOn(): Boolean = "1" == Utils.getSystemProp(PROP_NAVI_KEEP)
+
+    fun volumeNavOn(): Boolean = "1" == Utils.getSystemProp(PROP_VOLUME_NAV)
+
+    /** 写属性并回读校验；返回 false = 这台车机不让写。 */
+    fun setFlag(prop: String, on: Boolean): Boolean {
+        val v = if (on) "1" else "0"
+        Utils.setSystemProp(prop, v)
+        return Utils.getSystemProp(prop) == v
+    }
+
+    /**
+     * 这两个开关能不能用：**注入时对应的那一条真的打进 dex 了**才亮。
+     *
+     * 为什么不用 `HookState.versionOf(PKG_MISC) == Hook.VERSION`：那个值是宿主启动后
+     * 回调上来的内存态，注入完到宿主重启之间一直是 null，界面会误灰；而且它只说明
+     * 「注入层在场」，不说明「这一条补丁在场」—— 老版本注入层里根本没有这两个方法。
+     * 直接扫已装 misc 的 dex 更准确，也立刻能出结果。
+     */
+    fun patchApplied(ctx: Context, marker: String): Boolean = runCatching {
+        ApkInspector.containsDexString(installedApkPath(ctx, PKG_MISC), marker)
+    }.getOrDefault(false)
+
+    fun naviKeepAvailable(ctx: Context): Boolean = patchApplied(ctx, MARK_NAVI_KEEP)
+
+    fun volumeNavAvailable(ctx: Context): Boolean = patchApplied(ctx, MARK_VOLUME_NAV)
+
+    private fun installedApkPath(ctx: Context, pkg: String): String? = runCatching {
+        ctx.packageManager.getPackageInfo(pkg, 0).applicationInfo.sourceDir
+    }.getOrNull()
 
     /* ---------------- 身份信息 ---------------- */
 
