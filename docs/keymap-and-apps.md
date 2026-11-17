@@ -68,7 +68,7 @@
 - **`BootReceiver`**（`service/src/main/java/com/bandwa/openadb/receiver/BootReceiver.kt`）：支持「不进界面（后台唤醒）」分支（`BootWake.wakeAll`），开机拉起应用时可选不弹界面（默认关）；内存 / 存储自动清理在 `user.sh` 执行后立即进行，不随 10 秒延时等待。
 - **界面**：Tab 加分组（`TabItem.group`，组间画分隔线、去掉逐项 alpha 动画、高度 44dp、去掉写死的 240dp 宽度）；四级字号（28 / 21 / 18 / 14）；深浅双主题；`Glassmorphism` 把整页大面积阴影拆成独立静态层，修掉滚动掉帧。
 - **Tab 顺序**（`MainActivity`）：系统设置 / 个性设置 / 音乐助手 / 导航助手 / 按键映射 / 仪表投屏 ‖ 油耗账本 ‖ 应用管理 / 维护诊断 / 专家模式 ‖ 关于软件。
-- **关于软件页**：展示赞赏码、贡献者头像、版权行与致谢，并提供 GPL-3.0 许可证要点入口。
+- **关于软件页**：展示贡献者头像、版权行与致谢（GPL-3.0 §5(b)），提供修改说明（§5(a)）与 GPL-3.0 许可证要点入口（§5(d)）。赞赏码属原作者个人收款用途，本发行版已移除。
 - **hook**：`Hook.VERSION` 由 `"4"` 升到 `"5"`，注入版本不一致时提示重装核心件。
 - **core 工具**：`MemGuard`（内存清理）、`StorageClean`（存储清理）、`CrashCollect`（崩溃 / 诊断包）、`SysInfo`（系统与车况信息）、`AppManage`（应用列表与卸载类型）、`AppPick`、`PsaExt`、`BootWake`。
 - **UI 组件**：`PageTitle`、`SectionTitle`、`AppPickDialog`、`AppPickerTwoPane`、`KeyPalette`，以及 `ic_apps` / `ic_key_map` 图标。
