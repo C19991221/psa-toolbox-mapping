@@ -40,6 +40,10 @@ import com.bandwa.openadb.util.AppEntry
 import com.bandwa.openadb.util.AppManage
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 
+// 沙发管家的下载地址不在本仓库配置里，点了只会提示「未配置远程下载服务」，入口默认隐藏。
+// 回调、确认弹窗与 installShafaApp() 链路都保留，改回 true 即可恢复。
+private const val SHOW_INSTALL_MARKET = false
+
 @Composable
 fun AppsRoute(
     viewModel: AppsViewModel = hiltViewModel(),
@@ -182,7 +186,9 @@ private fun AppsScreen(
                     text = if (uiState.apkQrCodeBitmap != null) "收起二维码" else "扫码上传 APK",
                     selected = uiState.apkQrCodeBitmap != null,
                 ) { onToggleApkQrCode() }
-                TextButton(text = "安装应用市场") { onInstallMarket() }
+                if (SHOW_INSTALL_MARKET) {
+                    TextButton(text = "安装应用市场") { onInstallMarket() }
+                }
                 Spacer(modifier = Modifier.weight(1f))
                 TextButton(
                     text = "按名称",
