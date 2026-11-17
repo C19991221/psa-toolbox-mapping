@@ -47,6 +47,9 @@ fun AboutSettingsRoute(
     AboutSettingsScreen(
         uiState = uiState,
         onCheckUpdate = viewModel::checkUpdate,
+        onCancelDownload = viewModel::cancelDownload,
+        onMinimizeDownload = viewModel::minimizeDownload,
+        onShowDownloadDialog = viewModel::showDownloadDialog,
         onReleaseNoteShown = viewModel::consumeReleaseNote,
     )
 }
@@ -67,6 +70,9 @@ fun AboutSettingsRoute(
 fun AboutSettingsScreen(
     uiState: AboutSettingsUIState,
     onCheckUpdate: () -> Unit = {},
+    onCancelDownload: () -> Unit = {},
+    onMinimizeDownload: () -> Unit = {},
+    onShowDownloadDialog: () -> Unit = {},
     onReleaseNoteShown: () -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -107,12 +113,16 @@ fun AboutSettingsScreen(
         )
     }
 
-    if (uiState.downloadProgress >= 0f) {
+    if (uiState.downloadProgress >= 0f && uiState.downloadDialogVisible) {
         LiquidProgressDialog(
             onDismissRequest = { },
             title = "下载更新",
             progress = uiState.downloadProgress,
             progressText = uiState.downloadProgressText,
+            cancelText = "取消下载",
+            onCancel = onCancelDownload,
+            secondaryText = "后台下载",
+            onSecondary = onMinimizeDownload,
         )
     }
 
@@ -168,7 +178,20 @@ fun AboutSettingsScreen(
             Spacer(modifier = Modifier.width(16.dp))
 
             // 检查更新贴着版本号右端（2026-11-16 用户要求：不再单独占一段）。
-            TextButton(text = if (uiState.downloadProgress >= 0f) "正在下载…" else "检查更新") {
+            // 下载中按钮自带进度填充，点它重新打开进度弹窗；取消/后台下载在弹窗里。
+            val downloading = uiState.downloadProgress >= 0f
+            TextButton(
+                text = if (downloading) {
+                    "下载中 ${(uiState.downloadProgress * 100).toInt().coerceIn(0, 100)}%"
+                } else {
+                    "检查更新"
+                },
+                progress = if (downloading) uiState.downloadProgress else null,
+            ) {
+                if (downloading) {
+                    onShowDownloadDialog()
+                    return@TextButton
+                }
                 val now = System.currentTimeMillis()
                 if (now - lastClickTime > debounceMs) {
                     lastClickTime = now

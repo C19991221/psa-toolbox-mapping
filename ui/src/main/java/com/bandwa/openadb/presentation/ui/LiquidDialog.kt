@@ -157,12 +157,23 @@ fun LiquidDialog(
     }
 }
 
+/**
+ * 带进度条的模态框。
+ *
+ * [cancelText] / [secondaryText] 都为空时就是原来那个纯展示的框（注入、安装等场景），
+ * 传了才在进度条下方多出两个按钮 —— 目前只有「检查更新」的下载用它做
+ * 「取消下载」与「后台下载」。
+ */
 @Composable
 fun LiquidProgressDialog(
     onDismissRequest: () -> Unit,
     title: String,
     progress: Float,
     progressText: String,
+    cancelText: String? = null,
+    onCancel: (() -> Unit)? = null,
+    secondaryText: String? = null,
+    onSecondary: (() -> Unit)? = null,
 ) {
     val fontScale = LocalFontScale.current
     Dialog(
@@ -219,6 +230,32 @@ fun LiquidProgressDialog(
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(top = 16.dp)
                     )
+
+                    if (cancelText != null || secondaryText != null) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 24.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (cancelText != null) {
+                                TextButton(
+                                    modifier = Modifier.weight(1f),
+                                    text = cancelText,
+                                    onclickListener = { onCancel?.invoke() }
+                                )
+                            }
+                            if (secondaryText != null) {
+                                TextButton(
+                                    modifier = Modifier.weight(1f),
+                                    text = secondaryText,
+                                    selected = true,
+                                    onclickListener = { onSecondary?.invoke() }
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
