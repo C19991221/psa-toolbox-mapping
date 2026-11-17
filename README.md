@@ -29,10 +29,6 @@ PSA 工具箱是一个运行在标致 / 雪铁龙车机（Android 9）上的系�
 
 ## 功能特性
 
-> 本仓库是 [band-wa/psa-toolbox](https://github.com/band-wa/psa-toolbox) 的衍生版本（GPL-3.0），
-> 在原有 9 个模块之外**新增「按键映射」「应用管理」两个页面**，并把按键映射的注入载荷
-> 并入工具箱自己的「修复PSA工具箱」链路。改动清单见 [docs/修改说明.md](docs/修改说明.md)。
-
 工具箱包含 11 个功能模块：
 
 | 模块 | 功能 |
@@ -47,7 +43,7 @@ PSA 工具箱是一个运行在标致 / 雪铁龙车机（Android 9）上的系�
 | **应用管理** | 列出车机自带关键应用与已装第三方应用，点行展开清缓存 / 清数据 / 卸载（更新），扫码无线安装 APK |
 | **维护诊断** | 车况只读展示（VIN / 总里程 / 油量 / 续航 / 瞬时油耗 / 转角 / 车速 / 档位）、仅解锁后备箱、重载 U 盘、存储清理与白名单、内存清理与名单、崩溃与诊断包、核心件修复 |
 | **专家模式** | 兼容模式、新装应用自动赋权、MTK 日志开关、开机脚本、开机自启动管理（可选「不进界面」后台唤醒）、工程模式入口 |
-| **关于软件** | 版本信息、检查更新、GPL-3.0 许可证、上游版权与致谢、贡献者、赞赏码 |
+| **关于软件** | 版本信息、检查更新、GPL-3.0 许可证、版权与致谢、贡献者、赞赏码 |
 
 ## 界面预览
 
@@ -65,7 +61,7 @@ PSA 工具箱是一个运行在标致 / 雪铁龙车机（Android 9）上的系�
 | --- | --- |
 | 平台 | Android 9（API 28）为目标设备；`minSdk 24`、`targetSdk 25`、`arm64-v8a` |
 | 语言 / UI | Kotlin 1.9.25、Jetpack Compose（Material 3）、自研液态玻璃组件 |
-| 架构 | 多模块（`:app` / `:core` / `:ui` / `:service` / `:hook`）、单 Activity + 9 Tab、MVI（UIState + StateFlow）、Hilt、Coroutines / Flow |
+| 架构 | 多模块（`:app` / `:core` / `:ui` / `:service` / `:hook`）、单 Activity + 11 Tab、MVI（UIState + StateFlow）、Hilt、Coroutines / Flow |
 | 车控 | `android.car` `CarPropertyManager`（进程内单连接网关 + 订阅重放），编译期使用 clean-room 桩；[官方 AVD 底座](tools/android-car-boot/README.md) 注入真实 `android.car` + 系统 CarService，运行时 parent-first 覆盖桩、直接走真实链路 |
 | 系统集成 | Bootclasspath 注入：把 `android.car` 客户端放进 boot class path、`com.android.car` 服务端装为系统应用。底座为 Google 官方 Android 9 userdebug AVD（替换 bootclasspath jar + 删 boot image 槽位的最小机制）；仅测试模拟器，真车勿装 |
 | 热补丁 | google/smali 3.0.10（dexlib2 / baksmali）、zipflinger 零拷贝重打包、apksig v2 签名 |
@@ -77,7 +73,7 @@ PSA 工具箱是一个运行在标致 / 雪铁龙车机（Android 9）上的系�
 
 ```
 psa-toolbox/
-├── app/                              # 应用壳：Application、MainActivity、9 个 Tab 的 feature 包
+├── app/                              # 应用壳：Application、MainActivity、11 个 Tab 的 feature 包
 │   └── src/main/
 │       ├── assets/modapk/            # 原厂核心件的补丁配置（config.json）
 │       ├── assets/                   # 上传页、运行时签名 keystore、提示音
@@ -184,8 +180,8 @@ psa.shafaEndpoint=https://example.com/shafa/downloadurl
 在线文件放在任何静态托管上都行（GitHub raw、对象存储、自建静态服务），构建时用两个地址指过去即可（`local.properties` 不入库）：
 
 ```properties
-psa.otaBase=https://raw.githubusercontent.com/<用户名>/<仓库名>/main/ota
-psa.infoBase=https://raw.githubusercontent.com/<用户名>/<仓库名>/main/ota
+psa.otaBase=https://raw.githubusercontent.com/band-wa/psa-toolbox/main/ota
+psa.infoBase=https://raw.githubusercontent.com/band-wa/psa-toolbox/main/ota
 ```
 
 因为代码里的路径自带子目录（`/releases/psaboxlite/lasted.apk`、`/tools/hicar/hicar_fix.apk`、`/psatoolbox.html`），
@@ -262,17 +258,6 @@ Copyright (C) 2023-2026 bandwa contributors
 - 本项目按“现状”提供，不附带任何担保。
 
 第三方依赖遵循各自许可证：AndroidX / Compose、smali、zipflinger、apksig、NanoHTTPD、OkHttp、ZXing 等为宽松许可证，可与 GPL-3.0 兼容。
-
-### 本衍生版本的修改声明
-
-本仓库（`<你的用户名>/<仓库名>`）是上述项目的**衍生作品**，同样以 GPL-3.0 发布：
-
-- **修改日期**：2026-11-16
-- **修改内容**：新增「按键映射」「应用管理」两个页面；把按键映射的注入载荷并入「修复PSA工具箱」链路；
-  界面重做（菜单分组、四级字号、深浅双主题）；拆除大面积阴影修掉滑动掉帧；开机拉起可选不进界面。
-  完整清单见 [docs/修改说明.md](docs/修改说明.md)。
-- **声明位置**：本 README、[docs/修改说明.md](docs/修改说明.md)、以及 App 内「关于软件」页（`LegalNotices.MODIFIED_NOTICE`）。
-- **上游版权**：`© 2025 bandwa, YC-Tan, ningning21 and fingdo 版权所有`（原样保留在 App 关于页）。
 
 ## 免责声明
 

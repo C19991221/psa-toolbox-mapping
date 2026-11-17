@@ -1,6 +1,6 @@
 # 架构说明
 
-> 适用版本：v5.3.4（衍生版，见 [修改说明.md](修改说明.md)）。本文描述仓库**当前真实状态**。
+> 适用版本：v5.3.4。本文描述仓库**当前真实状态**。
 > 维护约定：新增/删除模块、移动顶层包、调整模块依赖时，同步更新本文。
 
 ## 1. 模块总览
@@ -9,7 +9,7 @@
 
 | 模块 | namespace | 类型 | 职责 | 依赖 |
 | --- | --- | --- | --- | --- |
-| `:app` | `com.bandwa.openadb` | application | 壳：`PSAHelperApplication`、`MainActivity`、9 个 Tab 的 feature 与 ViewModel；Manifest、DI 根、assets、签名 | `:core` `:ui` `:service` `:hook` |
+| `:app` | `com.bandwa.openadb` | application | 壳：`PSAHelperApplication`、`MainActivity`、11 个 Tab 的 feature 与 ViewModel；Manifest、DI 根、assets、签名 | `:core` `:ui` `:service` `:hook` |
 | `:core` | `com.bandwa.openadb.core` | library | 无 UI 的通用能力：系统/进程/shell、车控网关、油耗账本、APK 下载与校验、smali/dex 补丁工具、hook 状态、实体类 | `:hook` |
 | `:ui` | `com.bandwa.openadb.ui` | library | Compose 主题、颜色/形状/字体、通用组件、通用弹窗、预览；功能图标资源 | `:core` |
 | `:service` | `com.bandwa.openadb.service` | library | 常驻前台服务、广播接收、无障碍、悬浮窗 overlay、安装器、AIDL bridge、服务侧 DI | `:core` `:ui` `:hook` |
@@ -38,9 +38,9 @@
 
 ### `:app` —— 壳 + feature
 
-- 唯一 application 模块。`MainActivity.kt` 在 `presentation/main/`，单 Activity 承载 9 个 Tab（Compose，无 Fragment）。
+- 唯一 application 模块。`MainActivity.kt` 在 `presentation/main/`，单 Activity 承载 11 个 Tab（Compose，无 Fragment）。
 - 每个业务 feature 固定三件套：`XxxRoute.kt`（Compose 路由/入口）、`XxxUIState.kt`（状态与事件类型）、`XxxViewModel.kt`（`@HiltViewModel` + `@Inject` 构造）。
-- 现有 10 个 feature 包（`app/src/main/java/com/bandwa/openadb/presentation/main/`）：`about`、`binding`、`expert`、`fuel`、`music`、`navi`、`person`、`projection`、`system`、`tools`。其中 `binding` 是音乐/导航共用的按键绑定区块，不单独占 Tab。
+- 现有 12 个 feature 包（`app/src/main/java/com/bandwa/openadb/presentation/main/`）：`about`、`apps`、`binding`、`expert`、`fuel`、`keymap`、`music`、`navi`、`person`、`projection`、`system`、`tools`。其中 `keymap`、`apps` 对应「按键映射」「应用管理」两个 Tab；`binding` 是音乐/导航共用的按键绑定区块，不单独占 Tab。
 - 壳层文件：`PSAHelperApplication.kt`（根包，`@HiltAndroidApp`）、`di/ApplicationModule.kt`。
 
 ### `:core` —— 纯业务与系统能力
