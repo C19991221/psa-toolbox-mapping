@@ -175,6 +175,8 @@ psa.shafaEndpoint=https://example.com/shafa/downloadurl
 
 未配置时构建仍可成功：检查更新与下载入口提示「未配置…」并跳过，公告显示「暂无新公告」，沙发管家安装提示「未配置沙发管家下载地址」，友盟统计不初始化。
 
+本仓库把在线文件放在 [`ota/`](ota/) 目录，用 raw 直链配置，见 [ota/README.md](ota/README.md)。
+
 ### 测试
 
 ```bash
