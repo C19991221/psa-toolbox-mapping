@@ -5,7 +5,6 @@ import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,7 +22,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -57,8 +54,14 @@ fun AboutSettingsRoute(
 /**
  * 「关于软件」页。
  *
- * 赞赏码、贡献者头像、致谢与版权行都是项目原有的内容，原样保留；
- * 我们只在上面加了「检查更新」入口与版本号连点解锁工程模式的交互。
+ * 只保留 GPL-3.0 对我们的强制项与正常的署名：
+ * - §5(a) 改过什么、什么时候改的 → [LegalNotices.MODIFIED_NOTICE]
+ * - §5(b) 原版权声明 + 仍以 GPL-3.0 发布 → 版权行（[LegalNotices.COPYRIGHT]）
+ * - §5(d) 合适的法律声明（版权 / 无担保 / 许可证及查看途径）→ 「GPL-3.0 许可证」按钮
+ *
+ * 原版「支持开发组」一段（bandwa 的赞赏二维码 + AI 工具 Logo）**不在 GPL 要求之列**，
+ * 我们自己的分发继续挂着它会让打赏错付 ⇒ 2026-11-17 整段删除。
+ * 贡献者头像与致谢属正常署名，保留。
  */
 @Composable
 fun AboutSettingsScreen(
@@ -69,6 +72,7 @@ fun AboutSettingsScreen(
     val context = LocalContext.current
     val scrollState = rememberScrollState()
     var infoDialog by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var showLicense by remember { mutableStateOf(false) }
     var lastClickTime by remember { mutableStateOf(0L) }
     val debounceMs = 5000L
 
@@ -92,6 +96,14 @@ fun AboutSettingsScreen(
             onDismissRequest = { infoDialog = null },
             title = it.first,
             content = it.second,
+        )
+    }
+
+    if (showLicense) {
+        LiquidDialog(
+            onDismissRequest = { showLicense = false },
+            title = "GPL-3.0 许可证",
+            content = LegalNotices.LICENSE_SUMMARY,
         )
     }
 
@@ -150,6 +162,11 @@ fun AboutSettingsScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
+            // 许可证入口：GPL-3.0 §5(d) 的「合适的法律声明」，点开看要点与全文地址。
+            TextButton(text = "GPL-3.0 许可证") { showLicense = true }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
             // 检查更新贴着版本号右端（2026-11-16 用户要求：不再单独占一段）。
             TextButton(text = if (uiState.downloadProgress >= 0f) "正在下载…" else "检查更新") {
                 val now = System.currentTimeMillis()
@@ -162,66 +179,18 @@ fun AboutSettingsScreen(
             }
         }
 
-        SectionTitle(modifier = Modifier.padding(top = 40.dp), text = "支持开发组")
+        // ---- 基于原版修改的说明（GPL-3.0 §5(a)）----
+        Text(
+            modifier = Modifier.padding(top = 16.dp),
+            text = LegalNotices.MODIFIED_NOTICE,
+            style = AppTheme.typography.bodyMedium,
+            color = AppTheme.colors.textColorSecondary,
+        )
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.qr_code),
-                contentDescription = "赞赏二维码",
-                modifier = Modifier
-                    .size(200.dp)
-                    .clip(RoundedCornerShape(6.dp))
-            )
-
-            Spacer(modifier = Modifier.width(32.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_gemini_logo),
-                        contentDescription = "Gemini Logo",
-                        modifier = Modifier.size(64.dp)
-                    )
-                    Text(
-                        modifier = Modifier.padding(top = 8.dp),
-                        text = "Gemini",
-                        style = AppTheme.typography.titleMedium,
-                        color = AppTheme.colors.textColorSecondary
-                    )
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_deepseek_logo),
-                        contentDescription = "DeepSeek Logo",
-                        modifier = Modifier.size(64.dp)
-                    )
-                    Text(
-                        modifier = Modifier.padding(top = 8.dp),
-                        text = "DeepSeek",
-                        style = AppTheme.typography.titleMedium,
-                        color = AppTheme.colors.textColorSecondary
-                    )
-                }
-            }
-
-            Text(
-                modifier = Modifier.padding(top = 12.dp, start = 24.dp),
-                text = "AI 辅助开发",
-                style = AppTheme.typography.titleMedium,
-                color = AppTheme.colors.textColorSecondary
-            )
-        }
-
-        // 版权行与致谢：原文照抄，不删不改。
+        // 版权行与致谢：原版字面量照抄（§5(b) 保留版权声明）。
         Text(
             modifier = Modifier.padding(top = 15.dp),
-            text = "${uiState.appVersionName} | © 2025 bandwa, YC-Tan, ningning21 and fingdo 版权所有\n" +
-                "特别感谢: 逐梦汴梁城 (甲壳虫等详细教程), 卓群 (无偿提供云盘), 戏子 (tasker方控), 国新 (拨号调试) 和所有间接参与或测试反馈的车友",
+            text = "${uiState.appVersionName} | ${LegalNotices.COPYRIGHT}\n" + LegalNotices.THANKS,
             style = AppTheme.typography.bodyMedium,
             color = AppTheme.colors.textColorSecondary
         )

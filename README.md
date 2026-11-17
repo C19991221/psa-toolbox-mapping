@@ -11,15 +11,31 @@
 ![Android](https://img.shields.io/badge/Android-9%2B-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-1.9.25-7F52FF?logo=kotlin&logoColor=white)
 ![Compose](https://img.shields.io/badge/Jetpack%20Compose-2024.12.01-4285F4?logo=jetpackcompose&logoColor=white)
-![Version](https://img.shields.io/badge/version-5.3.4-blue)
+![Version](https://img.shields.io/badge/version-5.3.4%20by%20%E5%A4%A9%E6%89%8D%E5%A4%A7%E7%86%8A%E7%8C%AB-blue)
 ![License](https://img.shields.io/badge/License-GPLv3-blue)
-[![CI](https://github.com/band-wa/psa-toolbox/actions/workflows/ci.yml/badge.svg)](https://github.com/band-wa/psa-toolbox/actions/workflows/ci.yml)
 
-[功能特性](#功能特性) · [界面预览](#界面预览) · [技术栈](#技术栈) · [项目架构](#项目架构) · [核心机制](#核心机制dex-热补丁) · [快速开始](#快速开始) · [贡献](#贡献指南) · [License](#license)
+[功能特性](#功能特性) · [本仓库做了什么](#本仓库做了什么) · [界面预览](#界面预览) · [技术栈](#技术栈) · [项目架构](#项目架构) · [核心机制](#核心机制dex-热补丁) · [快速开始](#快速开始) · [发布与在线更新](#发布与在线更新) · [贡献](#贡献指南) · [License](#license)
 
 </div>
 
 ---
+
+## 本仓库做了什么
+
+本仓库是在 [bandwa/psa-toolbox](https://github.com/band-wa/psa-toolbox)（GPL-3.0）基础上继续开发的版本，由 **天才大熊猫** 维护并发布，安装包版本串形如 `5.3.4 by 天才大熊猫`，便于与原作者发布的同名版本区分。
+
+在原版之上做的事情只有四类：
+
+| 类别 | 内容 |
+| --- | --- |
+| **新页面** | 「按键映射」：13 个键位的单击 / 长按各自绑定启动应用（含会员中心键、车机设置键），两列卡片布局，选应用按系统应用 / 第三方应用过滤 |
+| **新页面** | 「应用管理」：列出车机关键应用与已装第三方应用，点行弹出清缓存 / 清数据 / 卸载（更新），扫码无线安装 APK |
+| **注入载荷** | 「修复PSA工具箱」同时下发按键映射补丁：在 `com.cusc.misc` 的 `KeyEventEmitter` 挂 `psaHandle` / `psaLaunch`，并在 `onKeyClick` 开头插桩；只做加法，不整类替换，原厂分支一个不动 |
+| **发布配套** | `ota/` 在线更新分发目录（raw 直链）、`docs/修改说明.md` 与 `docs/版本说明_v5.3.4.md`、界面截图 |
+
+与「按键映射」相关的实现细节见 [docs/修改说明.md](docs/修改说明.md)，版本说明见 [docs/版本说明_v5.3.4.md](docs/版本说明_v5.3.4.md)。
+
+**关于「关于软件」页**：按 GPL-3.0 §5 保留了三样强制内容 —— 修改说明（§5a）、原作者版权行（§5b）、许可证入口与查看途径（§5d）；原版「支持开发组」一段里的**赞赏二维码与 AI 工具 Logo 属于原作者的收款与致谢物料，不在 GPL 要求之列**，本仓库不再随包分发，以免打赏错付。
 
 ## 简介
 
@@ -43,7 +59,7 @@ PSA 工具箱是一个运行在标致 / 雪铁龙车机（Android 9）上的系�
 | **应用管理** | 列出车机自带关键应用与已装第三方应用，点行展开清缓存 / 清数据 / 卸载（更新），扫码无线安装 APK，也可以一键安装沙发管家作为应用市场 |
 | **维护诊断** | 车况只读展示（VIN / 总里程 / 油量 / 续航 / 瞬时油耗 / 转角 / 车速 / 档位）、仅解锁后备箱、重载 U 盘、存储清理与白名单、内存清理与名单、崩溃与诊断包、核心件修复 |
 | **专家模式** | 兼容模式、新装应用自动赋权、MTK 日志开关、开机脚本、开机自启动管理（可选「不进界面」后台唤醒）、工程模式入口 |
-| **关于软件** | 版本信息、检查更新、版权与致谢、贡献者、赞赏码 |
+| **关于软件** | 版本信息、检查更新、修改说明（GPL §5a）、原作者版权行与致谢（§5b）、GPL-3.0 许可证入口（§5d）、贡献者 |
 
 ## 界面预览
 
@@ -210,6 +226,26 @@ adb install -r app/build/outputs/apk/release/app-release.apk
 - 首次启动需同意使用协议，并完成核心组件注入（对原厂系统件打补丁，耗时数分钟，请勿断电）。
 - 建议安装完成后重启车机一次。
 
+## 发布与在线更新
+
+本仓库自己发布安装包，走 `ota/` 目录 + GitHub raw 直链（**不在 GitHub Releases 发**）：
+
+```bash
+# 1. 出包（R8 后约 2.6 MB）
+./gradlew :app:assembleRelease
+
+# 2. 发布进 ota/：写 lasted.apk / lasted_md5 / lasted_version / lasted_info
+python ota/publish_ota.py --apk app/build/outputs/apk/release/app-release.apk \
+    --version "5.3.4 by 天才大熊猫" --info 新版特性.txt
+
+# 3. 提交推送，raw 直链约 5 分钟生效
+git add ota && git commit -m "chore(ota): 发布 5.3.4" && git push
+```
+
+⚠ **`--version` 必须与 `app/build.gradle.kts` 的 `versionName` 完全一致**（含空格与中文）：App 的检查更新是字符串相等比较（`VersionUtils.kt`），不一致会让设备永远判「有新版本」并反复下载。
+
+`ota/` 的目录结构、raw 直链地址与各文件含义见 [ota/README.md](ota/README.md)。
+
 ## 已知限制与兼容性
 
 - 面向 **PSA 车机 Android 9（API 28）**；`targetSdk=25`、`minSdk=24`，未适配 Android 10+ 的权限与投屏差异。
@@ -220,7 +256,17 @@ adb install -r app/build/outputs/apk/release/app-release.apk
 
 ## 贡献指南
 
-欢迎 Issue、PR 与车型适配反馈。PR 请以 `dev` 分支为目标分支，不要直接向 `main` 提交：
+本仓库有两个分支，用途不同，**请不要搞反**：
+
+| 分支 | 用途 | 能放什么 |
+| --- | --- | --- |
+| `dev` | **只用来给上游 [band-wa/psa-toolbox](https://github.com/band-wa/psa-toolbox) 提 PR** | 与上游保持一致的干净镜像。提 PR 时从这里开分支，目标也是上游的 `dev` |
+| `main` | **我们自己发布用的主线** | 上游 `dev` + 我们的私有提交（`ota/` 分发目录、三个部署开关、`docs/修改说明.md`、版本说明、截图） |
+
+- 给上游的 PR **必须剥掉**我们自己的部署选择：`SHOW_MEDIA_PLUGIN` / `SHOW_HICAR_CITROEN` / `SHOW_INSTALL_MARKET` 三个开关要恢复原样，不带 `ota/`、不带 `local.properties`、不带截图；fork 地址换占位符。
+- 改 `main` 自己的发布内容（`ota/`、版本说明、截图、README 这一段）时直接提交到 `main`，不要进 PR。
+
+代码约定：
 
 1. 提交信息遵循 `type(scope): 摘要`（如 `fix(service): 修复投屏偏移`），与现有提交风格保持一致；
 2. 提交前请跑通 `./gradlew :core:testDebugUnitTest :service:testDebugUnitTest :app:testDebugUnitTest` 与 `./gradlew :app:assembleRelease`；
@@ -239,8 +285,10 @@ adb install -r app/build/outputs/apk/release/app-release.apk
 
 Copyright (C) 2023-2026 bandwa contributors
 
+本项目由 **天才大熊猫** 在原作者 bandwa 的 PSA 工具箱基础上继续开发，修改日期 2026-11-17，修改内容见本文「本仓库做了什么」一节与 [docs/修改说明.md](docs/修改说明.md)。修改后的作品同样以 GPL-3.0 发布；原作者版权行按 §5(b) 原样保留。
+
 - 你可以自由使用、修改和分发本项目；
-- 衍生作品必须继续以 GPL-3.0 开源，并保留版权与许可证声明；
+- 衍生作品必须继续以 GPL-3.0 开源，并保留版权与许可证声明，且显著标注「改过」；
 - 本项目按“现状”提供，不附带任何担保。
 
 第三方依赖遵循各自许可证：AndroidX / Compose、smali、zipflinger、apksig、NanoHTTPD、OkHttp、ZXing 等为宽松许可证，可与 GPL-3.0 兼容。

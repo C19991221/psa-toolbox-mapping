@@ -24,7 +24,7 @@ ota/
 ├── psatoolbox.html                     # 系统设置页「公告栏」正文（纯文本，非 HTML 渲染）
 ├── releases/
 │   └── psaboxlite/
-│       ├── lasted_version              # 一行 versionName，如 5.3.3（与本地相等＝已最新）
+│       ├── lasted_version              # 一行 versionName，如 5.3.4 by 天才大熊猫（与本地字符串相等＝已最新）
 │       ├── lasted.apk                  # 最新安装包本体
 │       ├── lasted_md5                  # 一行 md5 小写十六进制，用于下载校验
 │       └── lasted_info                 # 「新版特性」弹窗正文（纯文本）
@@ -56,13 +56,15 @@ ota/
 
 ## 怎么发一版新的
 
-用项目里的 `04_脚本\publish_ota.py`：
+用本目录里的 `publish_ota.py`（即仓库根的 `ota/publish_ota.py`）：
 
 ```powershell
-python 04_脚本\publish_ota.py --apk 按键映射_v15.apk --version 5.3.3 --out <本目录>
+python ota\publish_ota.py --apk app\build\outputs\apk\release\app-release.apk --version "5.3.4 by 天才大熊猫"
 ```
 
 它会写出 `lasted_version` / `lasted_md5` / `lasted.apk`（复制）/ `lasted_info` 的骨架。
+
+⚠ `--version` 必须与 `app/build.gradle.kts` 的 `versionName` **完全一致**（含空格与中文），否则设备永远判「有新版本」并反复下载 —— 检查更新是字符串相等比较。
 
 ## 注意
 
