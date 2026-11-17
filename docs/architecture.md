@@ -40,7 +40,7 @@
 
 - 唯一 application 模块。`MainActivity.kt` 在 `presentation/main/`，单 Activity 承载 11 个 Tab（Compose，无 Fragment）。
 - 每个业务 feature 固定三件套：`XxxRoute.kt`（Compose 路由/入口）、`XxxUIState.kt`（状态与事件类型）、`XxxViewModel.kt`（`@HiltViewModel` + `@Inject` 构造）。
-- 现有 12 个 feature 包（`app/src/main/java/com/bandwa/openadb/presentation/main/`）：`about`、`apps`、`binding`、`expert`、`fuel`、`keymap`、`music`、`navi`、`person`、`projection`、`system`、`tools`。其中 `keymap`、`apps` 对应「按键映射」「应用管理」两个 Tab；`binding` 是音乐/导航共用的按键绑定区块，不单独占 Tab。
+- 现有 12 个 feature 包（`app/src/main/java/com/bandwa/openadb/presentation/main/`）：`about`、`apps`、`binding`、`expert`、`fuel`、`keymap`、`music`、`navi`、`person`、`projection`、`system`、`tools`。其中 `keymap`、`apps` 对应「按键映射」「应用管理」两个 Tab；`binding` 是音乐/导航共用的按键绑定区块，不单独占 Tab —— 所以 12 个包对应 11 个 Tab。
 - 壳层文件：`PSAHelperApplication.kt`（根包，`@HiltAndroidApp`）、`di/ApplicationModule.kt`。
 
 ### `:core` —— 纯业务与系统能力
@@ -119,7 +119,7 @@ gradlew :hook:hookDex                           :: 只重建 hook.dex
 gradlew :service:testDebugUnitTest -Dpatch.fixtures=<目录> -Dpatch.fixtures.limit=<n>
 ```
 
-- 单测现状：`:core` 只有 `ApkDownloaderTest`；`:service` 有 `HvacWindowEventHubTest` 与 `PatchRegressionTest`（补丁回归，靠 `-Dpatch.fixtures` 提供样本，`:core`/`:service` 的 Test 任务已 `dependsOn(":hook:hookDex")` 并配 4g 堆）；`:app/src/test` 目前是空目录，`:app:testDebugUnitTest` 只是保持 CI 地位，没有用例。
+- 单测现状：`:core` 只有 `ApkDownloaderTest`；`:service` 有 `HvacWindowEventHubTest`、`PatchRegressionTest`（补丁回归，靠 `-Dpatch.fixtures` 提供样本）与 `PsaKeyMapPackTest`（按键映射注入自证，靠 `-Dpsa.apk`/`-Dpsa.out` 提供真实原包）；两个靠样本的用例都在未提供样本时 `assumeTrue` 跳过（`:core`/`:service` 的 Test 任务已 `dependsOn(":hook:hookDex")` 并配 4g 堆）；`:app/src/test` 目前是空目录，`:app:testDebugUnitTest` 只是保持 CI 地位，没有用例。
 
 ### hook.dex 生成与同步链路
 
