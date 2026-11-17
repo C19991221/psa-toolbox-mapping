@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# 构建 bootclasspath 版 android.car 客户端：javac(JDK17, --release 8) -> d8 -> jar(classes.dex)。
-# 可重复执行；产物在 build/android.car.jar。用 Git Bash 运行：bash tools/android-car-boot/api/build.sh
+# 构建 bootclasspath 版 android.car 客户端：javac(JDK 17，--release 8) -> d8
+# -> jar(classes.dex)；可重复执行，产物在 build/android.car.jar。
 set -euo pipefail
 
 API_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -14,6 +14,15 @@ DEX_DIR="$BUILD_DIR/dex"
 JAR_ROOT="$BUILD_DIR/jar-root"
 OUT_JAR="$BUILD_DIR/android.car.jar"
 
+# Windows(Git Bash/MSYS/Cygwin)：工具链为 d8.bat/dexdump.exe，路径需要 cygpath；
+# macOS(Darwin)/Linux：工具链为无后缀可执行脚本/二进制，stat 用 BSD 语法。
+HOST_OS="$(uname -s 2>/dev/null || echo Unknown)"
+case "$HOST_OS" in
+    MINGW*|MSYS*|CYGWIN*) HOST_OS=windows ;;
+    Darwin) HOST_OS=darwin ;;
+    *) HOST_OS=unix ;;
+esac
+
 native_path() {
     if command -v cygpath >/dev/null 2>&1; then
         cygpath -w "$1"
@@ -22,36 +31,71 @@ native_path() {
     fi
 }
 
+# GNU stat(-c %s) 与 BSD/macOS stat(-f %z) 的兼容写法。
+file_size() {
+    stat -c %s "$1" 2>/dev/null || stat -f %z "$1"
+}
+
+# 取候选路径中第一个存在的文件：Windows 优先 .bat/.exe，其他平台优先无后缀。
+first_existing() {
+    for candidate in "$@"; do
+        if [ -f "$candidate" ]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # ---- 工具链定位（均可用环境变量覆盖） ----
-ANDROID_SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/d/Tools/Android/sdk}}"
-if [ ! -d "$ANDROID_SDK" ] && [ -f "$REPO_DIR/local.properties" ]; then
-    ANDROID_SDK="$(sed -n 's/^sdk\.dir[[:space:]]*=[[:space:]]*//p' "$REPO_DIR/local.properties" \
-        | tr -d '\r' | head -1)"
+ANDROID_SDK="${ANDROID_SDK:-${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}}"
+if [ -z "$ANDROID_SDK" ] || [ ! -d "$ANDROID_SDK" ]; then
+    if [ -f "$REPO_DIR/local.properties" ]; then
+        ANDROID_SDK="$(sed -n 's/^sdk\.dir[[:space:]]*=[[:space:]]*//p' "$REPO_DIR/local.properties" \
+            | tr -d '\r' | head -1)"
+    fi
+fi
+if [ -z "$ANDROID_SDK" ] || [ ! -d "$ANDROID_SDK" ]; then
+    if [ "$HOST_OS" = windows ] && [ -d /d/Tools/Android/sdk ]; then
+        ANDROID_SDK=/d/Tools/Android/sdk
+    fi
 fi
 ANDROID_JAR="${ANDROID_JAR:-$ANDROID_SDK/platforms/android-34/android.jar}"
-D8="${D8:-$ANDROID_SDK/build-tools/34.0.0/d8.bat}"
-DEXDUMP="${DEXDUMP:-$ANDROID_SDK/build-tools/34.0.0/dexdump.exe}"
+
+BT_DIR="${ANDROID_BUILD_TOOLS_DIR:-$ANDROID_SDK/build-tools/34.0.0}"
+if [ "$HOST_OS" = windows ]; then
+    D8="${D8:-$(first_existing "$BT_DIR/d8.bat" "$BT_DIR/d8" || true)}"
+    DEXDUMP="${DEXDUMP:-$(first_existing "$BT_DIR/dexdump.exe" "$BT_DIR/dexdump" || true)}"
+else
+    D8="${D8:-$(first_existing "$BT_DIR/d8" "$BT_DIR/d8.bat" || true)}"
+    DEXDUMP="${DEXDUMP:-$(first_existing "$BT_DIR/dexdump" "$BT_DIR/dexdump.exe" || true)}"
+fi
 
 if [ -n "${JAVA_HOME:-}" ]; then
     JDK_HOME="$JAVA_HOME"
     if command -v cygpath >/dev/null 2>&1 && [[ "$JAVA_HOME" == *\\* ]]; then
         JDK_HOME="$(cygpath -u "$JAVA_HOME")"
     fi
+elif [ "$HOST_OS" = windows ] && [ -x "/d/Tools/Android/jdk-17/jdk-17.0.21+9/bin/javac" ]; then
+    JDK_HOME="/d/Tools/Android/jdk-17/jdk-17.0.21+9"
+elif command -v javac >/dev/null 2>&1; then
+    # 未设置 JAVA_HOME 时，按 PATH 中的 javac 反推 JDK 根目录（macOS/Linux）。
+    JDK_HOME="$(cd "$(dirname "$(command -v javac)")/.." && pwd)"
 else
     JDK_HOME="/d/Tools/Android/jdk-17/jdk-17.0.21+9"
 fi
 JAVAC="$JDK_HOME/bin/javac"
 JAR_TOOL="$JDK_HOME/bin/jar"
 if [ ! -x "$JAVAC" ] || [ ! -x "$JAR_TOOL" ]; then
-    echo "错误：找不到 JDK17 的 javac/jar（JAVA_HOME=$JDK_HOME）" >&2
+    echo "错误：找不到 JDK17 的 javac/jar（JAVA_HOME=${JDK_HOME}，宿主=${HOST_OS}）" >&2
     exit 1
 fi
 if [ ! -f "$ANDROID_JAR" ]; then
-    echo "错误：找不到 android.jar（ANDROID_JAR=$ANDROID_JAR）" >&2
+    echo "错误：找不到 android.jar（ANDROID_JAR=${ANDROID_JAR}）" >&2
     exit 1
 fi
 if [ ! -f "$D8" ]; then
-    echo "错误：找不到 d8（D8=$D8）" >&2
+    echo "错误：找不到 d8（D8=${D8:-<未找到>}，宿主=${HOST_OS}）" >&2
     exit 1
 fi
 
@@ -60,6 +104,7 @@ rm -rf "$BUILD_DIR"
 mkdir -p "$CLASSES_DIR" "$DEX_DIR" "$JAR_ROOT"
 
 # ---- 1. javac：编译 6 个 android.car 类 + boot 协议类 ----
+# bash 3.2 兼容：用 while read 填充数组，不依赖 mapfile。
 SOURCES=()
 while IFS= read -r f; do
     SOURCES+=("$f")
@@ -94,10 +139,10 @@ fi
 cp "$DEX_DIR/classes.dex" "$JAR_ROOT/classes.dex"
 ( cd "$JAR_ROOT" && "$JAR_TOOL" --create --file "$(native_path "$OUT_JAR")" \
     --no-manifest --date=1980-01-01T00:00:02Z classes.dex )
-JAR_SIZE="$(stat -c %s "$OUT_JAR" | tr -d ' ')"
+JAR_SIZE="$(file_size "$OUT_JAR" | tr -d ' ')"
 
 # ---- 4. 报告 ----
-echo "== 产物：$OUT_JAR（$JAR_SIZE 字节）"
+echo "== 产物：${OUT_JAR}（$JAR_SIZE 字节）"
 echo "== jar 内容："
 "$JAR_TOOL" --list --file "$(native_path "$OUT_JAR")" | sed 's/^/   /'
 if [ -f "$DEXDUMP" ]; then
