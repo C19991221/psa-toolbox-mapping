@@ -11,7 +11,7 @@
 ![Android](https://img.shields.io/badge/Android-9%2B-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-1.9.25-7F52FF?logo=kotlin&logoColor=white)
 ![Compose](https://img.shields.io/badge/Jetpack%20Compose-2024.12.01-4285F4?logo=jetpackcompose&logoColor=white)
-![Version](https://img.shields.io/badge/version-5.3.4%20by%20%E5%A4%A9%E6%89%8D%E5%A4%A7%E7%86%8A%E7%8C%AB-blue)
+![Version](https://img.shields.io/badge/version-5.3.5%20by%20%E5%A4%A9%E6%89%8D%E5%A4%A7%E7%86%8A%E7%8C%AB-blue)
 ![License](https://img.shields.io/badge/License-GPLv3-blue)
 
 [功能特性](#功能特性) · [本仓库做了什么](#本仓库做了什么) · [界面预览](#界面预览) · [技术栈](#技术栈) · [项目架构](#项目架构) · [核心机制](#核心机制dex-热补丁) · [快速开始](#快速开始) · [发布与在线更新](#发布与在线更新) · [贡献](#贡献指南) · [License](#license)
@@ -22,7 +22,7 @@
 
 ## 本仓库做了什么
 
-本仓库是在 [bandwa/psa-toolbox](https://github.com/band-wa/psa-toolbox)（GPL-3.0）基础上继续开发的版本，由 **天才大熊猫** 维护并发布，安装包版本串形如 `5.3.4 by 天才大熊猫`，便于与原作者发布的同名版本区分。
+本仓库是在 [bandwa/psa-toolbox](https://github.com/band-wa/psa-toolbox)（GPL-3.0）基础上继续开发的版本，由 **天才大熊猫** 维护并发布，安装包版本串形如 `5.3.5 by 天才大熊猫`，便于与原作者发布的同名版本区分。
 
 在原版之上做的事情只有四类：
 
@@ -31,9 +31,9 @@
 | **新页面** | 「按键映射」：13 个键位的单击 / 长按各自绑定启动应用（含会员中心键、车机设置键），两列卡片布局，选应用按系统应用 / 第三方应用过滤 |
 | **新页面** | 「应用管理」：列出车机关键应用与已装第三方应用，点行弹出清缓存 / 清数据 / 卸载（更新），扫码无线安装 APK |
 | **注入载荷** | 「修复PSA工具箱」同时下发按键映射补丁：在 `com.cusc.misc` 的 `KeyEventEmitter` 挂 `psaHandle` / `psaLaunch`，并在 `onKeyClick` 开头插桩；只做加法，不整类替换，原厂分支一个不动 |
-| **发布配套** | `ota/` 在线更新分发目录（raw 直链）、`docs/修改说明.md` 与 `docs/版本说明_v5.3.4.md`、界面截图 |
+| **发布配套** | `ota/` 在线更新分发目录（raw 直链）、`docs/修改说明.md` 与 `docs/版本说明_v5.3.5.md`、界面截图 |
 
-与「按键映射」相关的实现细节见 [docs/修改说明.md](docs/修改说明.md)，版本说明见 [docs/版本说明_v5.3.4.md](docs/版本说明_v5.3.4.md)。
+与「按键映射」相关的实现细节见 [docs/修改说明.md](docs/修改说明.md)，版本说明见 [docs/版本说明_v5.3.5.md](docs/版本说明_v5.3.5.md)。
 
 **关于「关于软件」页**：按 GPL-3.0 §5 保留了三样强制内容 —— 修改说明（§5a）、原作者版权行（§5b）、许可证入口与查看途径（§5d）；原版「支持开发组」一段里的**赞赏二维码与 AI 工具 Logo 属于原作者的收款与致谢物料，不在 GPL 要求之列**，本仓库不再随包分发，以免打赏错付。
 
@@ -51,8 +51,8 @@ PSA 工具箱是一个运行在标致 / 雪铁龙车机（Android 9）上的系�
 | --- | --- |
 | **系统设置** | 无线 ADB 开关（5555）、实体空调键代理（旋钮调温 / 音量键调风量 / AC 切换）、全面屏手势、FOTA 系统更新开关、状态栏显秒、公告栏 |
 | **个性设置** | 开机欢迎语音（可网页上传自定义音频）、原厂桌面修改（壁纸上传、卡片透明度、桌面编辑）、车机头像替换、主题 / 背景 / 字号 |
-| **音乐助手** | 上一曲 / 下一曲 / 播放暂停（自动适配 HiCar、CarLife 或按键注入）、HiCar 方控修复、CarLife 方控修复、多媒体插件安装 |
-| **导航助手** | 高德车机版签名安全检测、一键激活 |
+| **音乐助手** | 上一曲 / 下一曲 / 播放暂停（自动适配 HiCar、CarLife 或按键注入）、HiCar 方控修复、CarLife 方控修复、多媒体插件安装；**导航播报时旋钮调导航音量**（注入补丁，需 DiPlay 客户端，v5.3.5） |
+| **导航助手** | 高德车机版签名安全检测、一键激活；**保持仪表投屏不被高德空报文清掉**（注入补丁，v5.3.5） |
 | **按键映射** | 13 个键位（灯杆顶端 / 蓝牙电话 / 方向盘语音 / SRC / 空调 / 车辆设置 / 蓝牙钢琴 / 手机互联 / 音乐 / 地图 / LIST / 会员中心 / 车机设置）的单击与长按自定义启动应用，两列卡片布局，选应用按系统应用/第三方应用的规则过滤 |
 | **仪表投屏** | 镜像投屏、独立副屏应用投屏、画面位置 / 缩放调整、开机自动投屏、右滚轮长按快捷开关 |
 | **油耗账本** | 加油自动识别（VHAL 油量 / 里程）、悬浮窗金额录入、手动补录、百公里油耗、每公里油费、油箱容量设置 |
@@ -236,10 +236,10 @@ adb install -r app/build/outputs/apk/release/app-release.apk
 
 # 2. 发布进 ota/：写 lasted.apk / lasted_md5 / lasted_version / lasted_info
 python ota/publish_ota.py --apk app/build/outputs/apk/release/app-release.apk \
-    --version "5.3.4 by 天才大熊猫" --info 新版特性.txt
+    --version "5.3.5 by 天才大熊猫" --info 新版特性.txt
 
 # 3. 提交推送，raw 直链约 5 分钟生效
-git add ota && git commit -m "chore(ota): 发布 5.3.4" && git push
+git add ota && git commit -m "chore(ota): 发布 5.3.5" && git push
 ```
 
 ⚠ **`--version` 必须与 `app/build.gradle.kts` 的 `versionName` 完全一致**（含空格与中文）：App 的检查更新是字符串相等比较（`VersionUtils.kt`），不一致会让设备永远判「有新版本」并反复下载。
