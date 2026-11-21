@@ -138,6 +138,23 @@ object PsaExt {
         return Utils.getSystemProp(prop) == v
     }
 
+    /* ---------------- 倒挡 / 360 自动最亮 ---------------- */
+
+    /**
+     * 倒挡或 360 全景显示时把屏幕调到最亮，退出后恢复原亮度。默认关。
+     *
+     * 存的是本应用自己的 SharedPreferences（不是 system 属性）：只有公共服务的
+     * 常驻进程与界面两处读它，没必要占一个 persist 属性。
+     */
+    private const val K_AUTO_BRIGHT_AVM = "auto_bright_avm"
+
+    fun autoBrightAvmOn(ctx: Context): Boolean =
+        runCatching { prefs(ctx).getBoolean(K_AUTO_BRIGHT_AVM, false) }.getOrDefault(false)
+
+    fun setAutoBrightAvm(ctx: Context, on: Boolean) {
+        prefs(ctx).edit().putBoolean(K_AUTO_BRIGHT_AVM, on).apply()
+    }
+
     /**
      * 这两个开关能不能用：**注入时对应的那一条真的打进 dex 了**才亮。
      *

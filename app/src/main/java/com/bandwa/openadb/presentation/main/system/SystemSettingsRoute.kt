@@ -63,6 +63,7 @@ fun SystemSettingsRoute(
         changeAdbState = viewModel::refreshAdbState,
         changeProxyAirConditionState = viewModel::changeProxyAirConditionState,
         changeFullscreenGestureState = viewModel::changeFullscreenGestureState,
+        changeAutoBrightAvmState = viewModel::changeAutoBrightAvmState,
         changeFotaEnable = viewModel::changeFotaEnable,
     )
 }
@@ -73,6 +74,7 @@ fun SystemSettingsScreen(
     changeAdbState: (Boolean) -> Unit,
     changeProxyAirConditionState: (Boolean) -> Unit,
     changeFullscreenGestureState: (Boolean) -> Unit,
+    changeAutoBrightAvmState: (Boolean) -> Unit,
     changeFotaEnable: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
@@ -198,6 +200,24 @@ fun SystemSettingsScreen(
             )
 
             SelectionText(
+                modifier = Modifier
+                    .padding(top = 32.dp)
+                    .wrapContentSize(),
+                text = "倒挡/全景自动最亮",
+                showInfoButton = true,
+                infoClickListen = {
+                    showInfoDialog = "功能说明" to "1. 挂入 R 挡（显示倒车影像）或打开 360 全景时，屏幕自动调到最亮\n\n" +
+                            "2. 退出影像、回到其它档位后，恢复原来的亮度与亮度模式\n\n" +
+                            "3. 只改屏幕亮度，不动车机其它设置"
+                }
+            )
+            SwitchGroup(
+                check = uiState.isAutoBrightAvmChecked,
+                title = "倒挡或打开 360 全景时自动调到最亮，退出后恢复",
+                onCheckedChange = changeAutoBrightAvmState
+            )
+
+            SelectionText(
                 modifier = Modifier.padding(top = 32.dp),
                 text = "系统更新开关"
             )
@@ -282,6 +302,7 @@ fun SystemSettingsScreenPreview() {
             changeAdbState = { _ -> },
             changeProxyAirConditionState = { _ -> },
             changeFullscreenGestureState = { _ -> },
+            changeAutoBrightAvmState = {},
             changeFotaEnable = {}
         )
     }

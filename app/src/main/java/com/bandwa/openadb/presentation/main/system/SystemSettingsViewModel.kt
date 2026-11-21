@@ -20,6 +20,7 @@ import com.bandwa.openadb.util.ADBControl
 import com.bandwa.openadb.util.GestureBarController
 import com.bandwa.openadb.util.NetworkUtils.isConnectedToWifi
 import com.bandwa.openadb.util.NetworkUtils.isNetSystemUsable
+import com.bandwa.openadb.util.PsaExt
 import com.bandwa.openadb.util.ShellUtils
 import com.bandwa.openadb.util.Utils
 import com.bandwa.openadb.util.Utils.HVAC_HOOK_KEY
@@ -57,7 +58,8 @@ class SystemSettingsViewModel @Inject constructor(
             isAdbSwitchChecked = adbEnable,
             isAdbEnable = adbEnable,
             isProxyAirConditionChecked = isProxyAirConditionChecked,
-            isFullscreenGestureChecked = isFullscreenGestureChecked
+            isFullscreenGestureChecked = isFullscreenGestureChecked,
+            isAutoBrightAvmChecked = PsaExt.autoBrightAvmOn(context)
         )
         fetchWebContent()
         getFotaEnable()
@@ -256,6 +258,16 @@ class SystemSettingsViewModel @Inject constructor(
             toolBoxServiceWrapper.startService(ACTION_STOP_PROXY_AIR_CONDITION)
         }
         _uiState.update { it.copy(isProxyAirConditionChecked = checked) }
+    }
+
+    fun changeAutoBrightAvmState(checked: Boolean) {
+        PsaExt.setAutoBrightAvm(context, checked)
+        if (checked) {
+            Toast.makeText(context, "已开启：倒挡/360 全景时自动最亮", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "已关闭倒挡自动最亮", Toast.LENGTH_SHORT).show()
+        }
+        _uiState.update { it.copy(isAutoBrightAvmChecked = checked) }
     }
 
     fun changeFullscreenGestureState(checked: Boolean) {

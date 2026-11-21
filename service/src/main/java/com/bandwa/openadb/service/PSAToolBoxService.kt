@@ -329,6 +329,7 @@ class PSAToolBoxService : Service() {
                 CarGateway.ensureStarted(this@PSAToolBoxService)
                 registerCabinProps()
                 startFuelMonitor()
+                AutoBrightness.start(this@PSAToolBoxService, serviceScope)
             }
         } catch (e: Exception) {
             Log.d(Utils.SERVICE_TAG, "Init failed. ${e.message.toString()}")
