@@ -34,6 +34,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.bandwa.openadb.component.LiquidDropdownMenu
 import com.bandwa.openadb.component.LiquidDropdownMenuItem
 import com.bandwa.openadb.component.SelectionText
+import com.bandwa.openadb.component.SwitchGroup
 import com.bandwa.openadb.component.TextButton
 import com.bandwa.openadb.presentation.ui.AppBackground
 import com.bandwa.openadb.presentation.ui.AppTheme
@@ -45,6 +46,7 @@ import com.bandwa.openadb.presentation.ui.PSAHelperTheme
 import com.bandwa.openadb.presentation.ui.ThemeManager
 import com.bandwa.openadb.presentation.ui.ThemeMode
 import com.bandwa.openadb.presentation.ui.shapes
+import com.bandwa.openadb.util.PsaExt
 
 @Composable
 fun ToolBoxSettingsDialog(
@@ -189,6 +191,77 @@ fun ToolBoxSettingsDialog(
                                                     expandedFontSize = false
                                                 }
                                             )
+                                        }
+                                    }
+                                }
+
+                                /* -------- 启动页面（默认关，行为与原版一致） -------- */
+
+                                SelectionText(
+                                    modifier = Modifier.padding(top = 32.dp),
+                                    text = "启动页面"
+                                )
+
+                                var startPageOn by remember { mutableStateOf(PsaExt.startPageOn(context)) }
+                                SwitchGroup(
+                                    check = startPageOn,
+                                    title = "启动工具箱时自动打开指定页面",
+                                    description = if (startPageOn) {
+                                        "已开启：每次启动直接进入下面选定的页面"
+                                    } else {
+                                        "已关闭：每次启动都从「系统设置」开始"
+                                    },
+                                    onCheckedChange = { on ->
+                                        startPageOn = on
+                                        PsaExt.setStartPageOn(context, on)
+                                    },
+                                )
+
+                                if (startPageOn) {
+                                    val pages = listOf(
+                                        0 to "上次的页面",
+                                        1 to "系统设置",
+                                        3 to "个性设置",
+                                        2 to "音乐助手",
+                                        4 to "导航助手",
+                                        10 to "按键映射",
+                                        5 to "仪表投屏",
+                                        6 to "油耗账本",
+                                        11 to "应用管理",
+                                        7 to "维护诊断",
+                                        8 to "专家模式",
+                                        9 to "关于软件",
+                                    )
+                                    var selectedPageId by remember { mutableStateOf(PsaExt.startPageId(context)) }
+                                    var expandedPage by remember { mutableStateOf(false) }
+
+                                    SelectionText(
+                                        modifier = Modifier.padding(top = 20.dp),
+                                        text = "打开哪一页"
+                                    )
+                                    Box {
+                                        TextButton(
+                                            text = pages.firstOrNull { it.first == selectedPageId }?.second
+                                                ?: "上次的页面"
+                                        ) {
+                                            expandedPage = !expandedPage
+                                        }
+                                        LiquidDropdownMenu(
+                                            expanded = expandedPage,
+                                            onDismissRequest = { expandedPage = false }
+                                        ) {
+                                            pages.forEach { (id, name) ->
+                                                LiquidDropdownMenuItem(
+                                                    text = name,
+                                                    selected = id == selectedPageId,
+                                                    onClick = {
+                                                        selectedPageId = id
+                                                        PsaExt.setStartPageId(context, id)
+                                                        Toast.makeText(context, "启动页面已设为: $name", Toast.LENGTH_SHORT).show()
+                                                        expandedPage = false
+                                                    }
+                                                )
+                                            }
                                         }
                                     }
                                 }

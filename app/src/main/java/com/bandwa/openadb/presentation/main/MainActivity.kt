@@ -68,6 +68,7 @@ import com.bandwa.openadb.service.ToolBoxServiceWrapper.Companion.ACTION_START_P
 import com.bandwa.openadb.service.ToolBoxServiceWrapper.Companion.ACTION_STOP_PROXY_AIR_CONDITION
 import com.bandwa.openadb.util.Utils.COMPAT_MODE_KEY
 import com.bandwa.openadb.util.HookState
+import com.bandwa.openadb.util.PsaExt
 import com.bandwa.hook.Hook
 import com.bandwa.openadb.util.Utils.HVAC_HOOK_KEY
 import com.bandwa.openadb.util.Utils.PREFS_NAME
@@ -78,6 +79,7 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
     @Inject
     lateinit var toolBoxServiceWrapper: ToolBoxServiceWrapper
 
@@ -272,7 +274,22 @@ fun HomeScreen(activity: Activity) {
             TabItem(9, UiR.drawable.ic_tool_info, "关于软件", 3)
         )
     }
-    var currentTab by remember { mutableStateOf(tabs[0]) }
+    var currentTab by remember {
+        mutableStateOf(
+            run {
+                // 只在**进程冷启动**时算一次：开关关 = 和原版一样从「系统设置」开始。
+                // 从桌面再点一次图标只是把已有界面提到前台（Activity 是 singleTask），
+                // 走的不是这里，所以改完设置要「后台清掉再进」才生效 —— 这是用户要的语义。
+                if (!PsaExt.startPageOn(context)) {
+                    tabs[0]
+                } else {
+                    val fixedId = PsaExt.startPageId(context)
+                    val wantId = if (fixedId > 0) fixedId else PsaExt.lastTab(context)
+                    tabs.firstOrNull { it.id == wantId } ?: tabs[0]
+                }
+            }
+        )
+    }
 
     val themeManager = LocalThemeManager.current
     val backgroundBrush = themeManager.getBackgroundBrush()
@@ -312,9 +329,12 @@ fun HomeScreen(activity: Activity) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f),
-                        tabs = tabs
+                        tabs = tabs,
+                        selectedTabId = currentTab.id
                     ) { selectedTab ->
                         currentTab = selectedTab
+                        // 记住最后停留的页面，「启动时自动打开上次的页面」靠它。
+                        PsaExt.setLastTab(context, selectedTab.id)
                     }
                 }
             }

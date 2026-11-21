@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,9 +42,16 @@ private const val TAB_ITEM_HEIGHT = 44
 fun VerticalTabLayout(
     tabs: List<TabItem>,
     modifier: Modifier = Modifier,
+    /** 外部指定当前选中项（比如「启动页面」直接进某一页时要让光标跟着走）；null = 自己管。 */
+    selectedTabId: Int? = null,
     onTabSelected: (TabItem) -> Unit
 ) {
-    var selectedId by remember { mutableStateOf(tabs.firstOrNull()?.id ?: -1) }
+    var selectedId by remember { mutableStateOf(selectedTabId ?: tabs.firstOrNull()?.id ?: -1) }
+
+    // 外部把选中项改掉时同步过来（启动页面、重新打开应用都走这里）。
+    LaunchedEffect(selectedTabId) {
+        if (selectedTabId != null && selectedTabId != selectedId) selectedId = selectedTabId
+    }
 
     // 单列 LazyColumn（不再写死 240dp 宽），宽度交给外层容器，避免内容被裁。
     LazyColumn(

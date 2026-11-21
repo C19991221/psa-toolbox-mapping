@@ -155,6 +155,39 @@ object PsaExt {
         prefs(ctx).edit().putBoolean(K_AUTO_BRIGHT_AVM, on).apply()
     }
 
+    /* ---------------- 启动页面 ---------------- */
+
+    /**
+     * 启动时直接进入哪个页面。默认关（= 每次从「系统设置」开始，和原版一致）。
+     *
+     * `start_page_id`：`0` 表示「上次的页面」，其余是左侧菜单的 tab id
+     * （见 `MainActivity` 的 `TabItem`，例如 1 系统设置 / 10 按键映射 / 9 关于软件）。
+     */
+    private const val K_START_PAGE_ON = "start_page_on"
+    private const val K_START_PAGE_ID = "start_page_id"
+    private const val K_LAST_TAB = "last_tab"
+
+    fun startPageOn(ctx: Context): Boolean =
+        runCatching { prefs(ctx).getBoolean(K_START_PAGE_ON, false) }.getOrDefault(false)
+
+    fun setStartPageOn(ctx: Context, on: Boolean) {
+        prefs(ctx).edit().putBoolean(K_START_PAGE_ON, on).apply()
+    }
+
+    fun startPageId(ctx: Context): Int =
+        runCatching { prefs(ctx).getInt(K_START_PAGE_ID, 0) }.getOrDefault(0)
+
+    fun setStartPageId(ctx: Context, id: Int) {
+        prefs(ctx).edit().putInt(K_START_PAGE_ID, id).apply()
+    }
+
+    fun lastTab(ctx: Context): Int =
+        runCatching { prefs(ctx).getInt(K_LAST_TAB, 1) }.getOrDefault(1)
+
+    fun setLastTab(ctx: Context, id: Int) {
+        prefs(ctx).edit().putInt(K_LAST_TAB, id).apply()
+    }
+
     /**
      * 这两个开关能不能用：**注入时对应的那一条真的打进 dex 了**才亮。
      *
