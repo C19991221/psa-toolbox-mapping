@@ -238,9 +238,7 @@ fun AboutSettingsScreen(
 
 fun Context.getAppVersionName(): String {
     val packageInfo = packageManager.getPackageInfo(packageName, 0)
-    return packageInfo?.versionName?.let {
-        "V$it"
-    } ?: run {
+    return packageInfo?.versionName ?: run {
         "未知版本"
     }
 }
