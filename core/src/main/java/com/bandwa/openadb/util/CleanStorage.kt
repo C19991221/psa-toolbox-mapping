@@ -16,7 +16,25 @@ class CleanStorage {
                     val sdcardDir = File("/sdcard/")
                     if (!sdcardDir.exists() || !sdcardDir.isDirectory) return@launch
 
-                    val hardcodedPreservedDirs = setOf("amapauto9", "launcherPic", "mtklog")
+                    // 永久保留的 /sdcard 目录（2026-11-22 用户要求：这个按钮不许再删用户文件）。
+                    // 除了下面这些，/sdcard 根下其余目录都会被整目录删掉，所以"看起来像缓存"的
+                    // 也要谨慎——宁可少清，不可误删。
+                    val hardcodedPreservedDirs = setOf(
+                        // 车机自带、删了会出问题
+                        "amapauto9",      // 高德离线地图
+                        "launcherPic",    // 桌面图片
+                        "mtklog",         // 厂商日志
+                        // 用户文件 / 我们自己的东西
+                        "Download",       // 浏览器与诊断包下载
+                        "Documents",
+                        "Music",
+                        "Pictures",
+                        "DCIM",
+                        "Movies",
+                        "PSA",            // 我们的崩溃日志与诊断包
+                        "psa_iptheme",    // 仪表小屏导出的日志
+                        "netease",        // 网易云音乐缓存
+                    )
 
                     val hardcodedDirsToClean = setOf(
                         "/data/aee_exp",

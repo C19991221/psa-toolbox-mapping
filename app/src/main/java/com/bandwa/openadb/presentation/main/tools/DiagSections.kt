@@ -241,7 +241,9 @@ fun StorageCleanSection(topPad: Dp = 32.dp) {
         LiquidDialog(
             onDismissRequest = { showCleanConfirm = false },
             title = "清理缓存确认",
-            content = "将清除大多数应用的临时数据以释放空间（白名单里的应用会跳过）。是否继续？",
+            content = "会删除 /sdcard 根目录下除「下载 / 文档 / 音乐 / 图片 / 相机 / 影片 / PSA / " +
+                "psa_iptheme / netease / amapauto9 / launcherPic / mtklog / Android」以外的文件夹，" +
+                "并清空各应用的 cache。是否继续？",
             cancelText = "取消",
             confirmText = "确认清理",
             onConfirm = {
