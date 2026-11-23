@@ -23,10 +23,32 @@
 """
 
 import argparse
+import datetime
 import hashlib
 import os
 import shutil
 import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+# 版本号唯一真源：仓库根目录 version.properties（与 app/build.gradle.kts 共用）
+VERSION_PROPS = os.path.join(os.path.dirname(HERE), "version.properties")
+
+
+def read_version_props(path=VERSION_PROPS):
+    """读 marketing / build，返回拼接后的 versionName（与 build.gradle.kts 一致）。"""
+    data = {}
+    if not os.path.isfile(path):
+        return None
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            data[k.strip()] = v.strip()
+    if "marketing" not in data or "build" not in data:
+        return None
+    return "工具箱开发版%s (build %s)" % (data["marketing"], data["build"])
 
 
 def md5_of(path):
@@ -43,7 +65,10 @@ def main():
 
     ap = argparse.ArgumentParser(description="发布 OTA 到 ota/releases/psaboxlite/")
     ap.add_argument("--apk", required=True, help="要发布的 APK 路径")
-    ap.add_argument("--version", required=True, help="该 APK 的 versionName，必须完全一致")
+    ap.add_argument(
+        "--version",
+        help="该 APK 的 versionName；不给则自动从 version.properties 读（推荐）",
+    )
     ap.add_argument("--out", default=default_out, help="输出目录（默认 ota/releases/psaboxlite）")
     ap.add_argument("--name", default="lasted.apk", help="输出 APK 文件名（默认 lasted.apk）")
     ap.add_argument("--info", help="新版特性正文文件（UTF-8）")
@@ -59,7 +84,15 @@ def main():
     out = os.path.abspath(args.out)
     digest = md5_of(apk)
     size = os.path.getsize(apk)
-    version = args.version.strip()
+    if args.version:
+        version = args.version.strip()
+    else:
+        auto = read_version_props()
+        if not auto:
+            print("没给 --version，也读不到 version.properties：请显式传 --version")
+            return 2
+        version = auto
+        print("版本号自动取自 version.properties")
 
     info = None
     if args.info_text is not None:
@@ -67,6 +100,17 @@ def main():
     elif args.info:
         with open(os.path.abspath(args.info), "r", encoding="utf-8") as f:
             info = f.read()
+
+    # 更新日志自动带发布日期时间（用户 2026-11-23 要求）。
+    # 正文里已经有「发布」字样就不重复加，避免手工写的版本叠两层。
+    if info is not None:
+        info = info.strip("\n")
+        if "发布时间" not in info and "发布：" not in info:
+            now = datetime.datetime.now()
+            stamp = "%d-%02d-%02d %02d:%02d" % (
+                now.year, now.month, now.day, now.hour, now.minute,
+            )
+            info = "发布时间：%s\n\n%s" % (stamp, info)
 
     print("APK     : %s" % apk)
     print("大小    : %d B (%.2f MB)" % (size, size / 1048576.0))

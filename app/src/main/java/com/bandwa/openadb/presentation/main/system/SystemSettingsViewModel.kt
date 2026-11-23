@@ -19,19 +19,13 @@ import com.bandwa.openadb.service.ToolBoxServiceWrapper.Companion.ACTION_STOP_PR
 import com.bandwa.openadb.util.ADBControl
 import com.bandwa.openadb.util.GestureBarController
 import com.bandwa.openadb.util.NetworkUtils.isConnectedToWifi
-import com.bandwa.openadb.util.NetworkUtils.isNetSystemUsable
 import com.bandwa.openadb.util.PsaExt
 import com.bandwa.openadb.util.ShellUtils
 import com.bandwa.openadb.util.Utils
 import com.bandwa.openadb.util.Utils.HVAC_HOOK_KEY
-import com.bandwa.openadb.util.VersionUtils.isRemoteVersionDiff
-import com.bandwa.openadb.service.install.ApkInstaller
-import com.bandwa.openadb.service.install.RemoteApkSpec
 import com.bandwa.openadb.util.apk.RemoteHttp
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import de.palm.composestateevents.consumed
-import de.palm.composestateevents.triggered
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -175,78 +169,6 @@ class SystemSettingsViewModel @Inject constructor(
         }
     }
 
-    fun checkUpdate() = viewModelScope.launch {
-        if (!RemoteEndpoints.isOtaConfigured) {
-            Toast.makeText(context, "未配置更新服务", Toast.LENGTH_SHORT).show()
-            return@launch
-        }
-        if (isNetSystemUsable(context)) {
-            Toast.makeText(context, "正在检查更新", Toast.LENGTH_SHORT).show()
-            val remoteVersionDiff = isRemoteVersionDiff(
-                context,
-                RemoteEndpoints.ota("/releases/psaboxlite/lasted_version"),
-                context.packageName,
-            )
-            try {
-                if (remoteVersionDiff) {
-                    _uiState.update {
-                        it.copy(downloadProgress = 0f, downloadProgressText = "正在下载最新版本...")
-                    }
-
-                    when (val downloaded = ApkInstaller.download(
-                        context,
-                        RemoteApkSpec(
-                            url = RemoteEndpoints.ota("/releases/psaboxlite/lasted.apk"),
-                            md5Url = RemoteEndpoints.ota("/releases/psaboxlite/lasted_md5"),
-                            packageName = context.packageName,
-                            fileName = "psaboxlite_update.apk",
-                        ),
-                    ) { progress, totalBytesRead, contentLength ->
-                        updateDownloadProgress(progress, totalBytesRead, contentLength)
-                    }) {
-                        is ApkInstaller.DownloadResult.Ready -> {
-                            Toast.makeText(context, "新版本已下载，即将开始安装", Toast.LENGTH_SHORT).show()
-                            ApkInstaller.start(context, downloaded.apkFile, context.packageName)
-                        }
-
-                        is ApkInstaller.DownloadResult.Failure ->
-                            Toast.makeText(context, downloaded.message, Toast.LENGTH_LONG).show()
-                    }
-                } else {
-                    Toast.makeText(context, "版本号已是最新，无需更新", Toast.LENGTH_SHORT).show()
-                }
-            } finally {
-                if (remoteVersionDiff) {
-                    _uiState.update { it.copy(downloadProgress = -1f) }
-                } else {
-                    fetchUpdateInfo(RemoteEndpoints.ota("/releases/psaboxlite/lasted_info"))
-                }
-            }
-        }
-    }
-
-    private fun fetchUpdateInfo(url: String) = viewModelScope.launch {
-        try {
-            val updateInfo = RemoteHttp.fetchText(url)
-            if (updateInfo.isNotBlank()) {
-                _uiState.update { it.copy(showUpgradeDialog = triggered(updateInfo)) }
-            }
-        } catch (e: Exception) {
-            Toast.makeText(context, "网络错误，请尝试更换网络", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun updateDownloadProgress(progress: Int, totalBytesRead: Long, contentLength: Long) {
-        val (fraction, text) =
-            Utils.downloadProgressState(progress, totalBytesRead, contentLength)
-        _uiState.update { it.copy(downloadProgress = fraction, downloadProgressText = text) }
-    }
-
-    fun onResetCheckUpdateEvent() {
-        _uiState.update {
-            it.copy(showUpgradeDialog = consumed())
-        }
-    }
 
     fun changeProxyAirConditionState(checked: Boolean) {
         sharedPreferences.edit().putBoolean(HVAC_HOOK_KEY, checked).apply()

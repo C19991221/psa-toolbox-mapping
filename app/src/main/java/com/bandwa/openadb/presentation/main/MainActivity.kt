@@ -149,12 +149,20 @@ fun HomeScreen(activity: Activity) {
     if (showCoreInstallDialog) {
         LiquidDialog(
             onDismissRequest = {  },
-            title = "核心组件安装",
-            content = "检测到系统未安装PSA工具箱核心文件或版本过低，即将开始注入核心文件以激活高级功能。过程大约需要几分钟，请勿操作车机。",
-            confirmText = "开始安装",
+            title = "车机环境需要修复",
+            content = "检测到这台车机的运行环境不满足工具箱的使用条件" +
+                "（核心组件未部署，或版本与本软件不一致）。\n\n" +
+                "需要先修复核心组件，工具箱的按键映射、360 全景等功能才能正常使用。\n" +
+                "修复过程大约几分钟，期间请勿操作车机。",
+            confirmText = "开始修复",
             onConfirm = {
                 coreInstallStatus = "installing"
-                com.bandwa.openadb.service.install.ModApk.packageMod(context, "com.cusc.misc") { success ->
+                // 自动安装走与手动「修复」同一个入口（CoreComponent），只有 force 不同。
+                com.bandwa.openadb.service.install.CoreComponent.install(
+                    context,
+                    trigger = "首次打开或版本不匹配",
+                    force = false,
+                ) { success ->
                     coreInstallStatus = if (success) "completing" else "error"
                 }
             },
@@ -196,7 +204,7 @@ fun HomeScreen(activity: Activity) {
             )
             LiquidProgressDialog(
                 onDismissRequest = {},
-                title = "正在注入核心",
+                title = "正在修复车机环境",
                 progress = animatedProgress,
                 progressText = coreInstallProgressText,
             )
@@ -204,16 +212,18 @@ fun HomeScreen(activity: Activity) {
         "success" -> {
             LiquidDialog(
                 onDismissRequest = { coreInstallStatus = null; showCoreInstallDialog = false },
-                title = "安装成功",
-                content = "核心组件已成功注入系统，所有功能已准备就绪。",
-                confirmText = "太棒了",
+                title = "修复成功",
+                content = "车机环境已修复，工具箱的全部功能可以正常使用了。",
+                confirmText = "好的",
             )
         }
         "error" -> {
             LiquidDialog(
                 onDismissRequest = { coreInstallStatus = null },
-                title = "安装失败",
-                content = "核心组件注入失败，请检查车机存储空间或尝试重启工具箱。",
+                title = "修复失败",
+                content = "车机环境修复失败。常见原因是存储空间不足，或核心组件正被系统占用。\n\n" +
+                    "建议：清理一点存储空间后重试；仍然失败可以重启车机再试，" +
+                    "也可以到「维护诊断 → 修复PSA工具箱」手动重试。",
                 confirmText = "重试",
                 onConfirm = { showCoreInstallDialog = true },
                 cancelText = "暂时跳过",

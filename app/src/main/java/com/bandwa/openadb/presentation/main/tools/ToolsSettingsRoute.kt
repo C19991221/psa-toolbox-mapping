@@ -30,7 +30,7 @@ import com.bandwa.openadb.presentation.ui.PSAHelperThemePreview
 import com.bandwa.openadb.presentation.ui.md_theme_dark_surfaceTint
 import com.bandwa.openadb.presentation.ui.success_500
 import com.bandwa.openadb.preview.CombinedThemePreviews
-import com.bandwa.openadb.service.install.ModApk
+import com.bandwa.openadb.service.install.CoreComponent
 import com.bandwa.openadb.presentation.ui.LiquidProgressDialog
 
 import androidx.compose.animation.core.animateFloatAsState
@@ -79,7 +79,12 @@ fun ToolsSettingsScreen(
             onConfirm = {
                 repairStatus = "installing"
                 showRepairConfirmDialog = false
-                ModApk.packageMod(context, "com.cusc.misc", force = true) { success ->
+                // 手动修复走与自动安装同一个入口（CoreComponent），只有 force 不同。
+                CoreComponent.install(
+                    context,
+                    trigger = "手动修复PSA工具箱",
+                    force = true,
+                ) { success ->
                     repairStatus = if (success) "completing" else "error"
                 }
             },
@@ -143,7 +148,11 @@ fun ToolsSettingsScreen(
             confirmText = "重试",
             onConfirm = {
                 repairStatus = "installing"
-                ModApk.packageMod(context, "com.cusc.misc", force = true) { success ->
+                CoreComponent.install(
+                    context,
+                    trigger = "手动修复PSA工具箱（失败重试）",
+                    force = true,
+                ) { success ->
                     repairStatus = if (success) "completing" else "error"
                 }
             },

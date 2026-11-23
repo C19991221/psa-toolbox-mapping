@@ -50,7 +50,8 @@ fun AboutSettingsRoute(
         onCancelDownload = viewModel::cancelDownload,
         onMinimizeDownload = viewModel::minimizeDownload,
         onShowDownloadDialog = viewModel::showDownloadDialog,
-        onReleaseNoteShown = viewModel::consumeReleaseNote,
+        onStartDownload = viewModel::startDownload,
+        onDismissUpdatePrompt = viewModel::dismissUpdatePrompt,
     )
 }
 
@@ -73,7 +74,8 @@ fun AboutSettingsScreen(
     onCancelDownload: () -> Unit = {},
     onMinimizeDownload: () -> Unit = {},
     onShowDownloadDialog: () -> Unit = {},
-    onReleaseNoteShown: () -> Unit = {},
+    onStartDownload: () -> Unit = {},
+    onDismissUpdatePrompt: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
@@ -126,11 +128,29 @@ fun AboutSettingsScreen(
         )
     }
 
-    uiState.releaseNote?.let { note ->
+    // 查到版本后先摆更新日志，由用户决定是否更新（用户 2026-11-23 要求：
+    // 不要查到就自动下载；已是最新版本时也把日志显示出来）。
+    uiState.updatePrompt?.let { prompt ->
         LiquidDialog(
-            onDismissRequest = onReleaseNoteShown,
-            title = "新版特性",
-            content = note,
+            onDismissRequest = onDismissUpdatePrompt,
+            title = if (prompt.hasNew) "发现新版本" else "已是最新版本",
+            content = buildString {
+                if (prompt.hasNew) {
+                    append("新版本：")
+                    append(prompt.remoteVersion)
+                } else {
+                    append("当前版本：")
+                    append(uiState.appVersionName)
+                }
+                append("\n\n")
+                append(prompt.info)
+            },
+            confirmText = if (prompt.hasNew) "立即更新" else "知道了",
+            onConfirm = {
+                if (prompt.hasNew) onStartDownload() else onDismissUpdatePrompt()
+            },
+            cancelText = if (prompt.hasNew) "保持当前版本" else null,
+            onCancel = if (prompt.hasNew) onDismissUpdatePrompt else null,
         )
     }
 

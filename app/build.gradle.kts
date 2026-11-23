@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -14,6 +16,25 @@ fun deployValue(key: String): String = rootProject.extra[key] as String
 fun buildConfigString(value: String): String =
     "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
+// ── 版本号：唯一真源是仓库根目录的 `version.properties` ────────────────────────
+//
+// marketing = 对外说的大版本，只在有功能变化时才动（5.3.16 → 5.4.0）；
+// build     = 构建号，每次出包都 +1（哪怕只改了一个界面文案），同时当 versionCode。
+//
+// 出包前跑 `python bump_build.py`（默认只 +build），别再手改本文件里的数字：
+// 手改容易忘记同步 ota/releases/psaboxlite/lasted_version，而 VersionUtils 是
+// **字符串相等**比较，两边不一致设备就永远「有新版本」并反复下载。
+val versionProps = Properties()
+val versionPropsFile = rootProject.file("version.properties")
+if (versionPropsFile.exists()) {
+    versionPropsFile.inputStream().use { stream -> versionProps.load(stream) }
+}
+val marketingVersion = versionProps.getProperty("marketing", "0.0.0").trim()
+val buildNumber = versionProps.getProperty("build", "1").trim().toInt()
+// 显示串形如「工具箱开发版5.3.16 (build 24)」—— 括号里的 build 号让用户和
+// 技术支持一眼看出「这一版是第几次出包」，不用去猜两个 5.3.16 是不是同一版。
+val fullVersionName = "工具箱开发版$marketingVersion (build $buildNumber)"
+
 android {
     namespace = "com.bandwa.openadb"
     compileSdk = 34
@@ -22,12 +43,9 @@ android {
         applicationId = "com.bandwa.openadb"
         minSdk = 24
         targetSdk = 25
-        versionCode = 24
-        // 我们自己的分发版本串：在原作者版本号后加 by 天才大熊猫，
-        // 便于装到车上后与原作者发布的 5.3.6 一眼区分开。
-        // ⚠ 改这里必须同步改 ota/releases/psaboxlite/lasted_version：
-        //   VersionUtils 是**字符串相等**比较，两边不一致会让设备永远「有新版本」并反复下载。
-        versionName = "工具箱开发版5.3.16"
+        versionCode = buildNumber
+        // 我们自己的分发版本串（见上方 version.properties 说明）。
+        versionName = fullVersionName
         ndk {
             // x86_64 仅用于 Google 官方模拟器（android-car-boot AVD）联调：
             // 构建时加 -PavdAbi 才打包 x86_64，正式包保持 arm64-v8a

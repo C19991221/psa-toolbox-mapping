@@ -9,7 +9,6 @@ import com.bandwa.openadb.service.install.ApkInstaller
 import com.bandwa.openadb.service.install.RemoteApkSpec
 import com.bandwa.openadb.util.PsaExt
 import com.bandwa.openadb.util.Utils
-import com.bandwa.openadb.util.VersionUtils.isRemoteVersionDiff
 import com.bandwa.openadb.util.apk.ApkDownloader
 import com.bandwa.openadb.util.apk.RemoteHttp
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -52,10 +51,15 @@ class AboutSettingsViewModel @Inject constructor(
         _uiState.update { it.copy(identity = text) }
     }
 
-    /** 检查更新：从「系统设置」页搬到「关于软件」（版本号相关的东西放一起）。 */
+    /**
+     * 检查更新（**只检查、不下载**）。
+     *
+     * 用户 2026-11-23 要求：不管有没有新版本，都先把更新日志摆出来，
+     * 由他自己决定「保持当前版本」还是「立即更新」⇒ 下载动作在 [startDownload]。
+     */
     fun checkUpdate() {
         if (updateJob?.isActive == true) {
-            Toast.makeText(context, "正在下载，请稍候", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "正在检查，请稍候", Toast.LENGTH_SHORT).show()
             return
         }
         updateJob = viewModelScope.launch {
@@ -68,24 +72,52 @@ class AboutSettingsViewModel @Inject constructor(
                 return@launch
             }
             Toast.makeText(context, "正在检查更新", Toast.LENGTH_SHORT).show()
-            val hasNew = isRemoteVersionDiff(
-                context,
-                RemoteEndpoints.ota("/releases/psaboxlite/lasted_version"),
-                context.packageName,
-            )
-            try {
-                if (!hasNew) {
-                    Toast.makeText(context, "已是最新版本", Toast.LENGTH_SHORT).show()
-                    fetchReleaseNote()
-                    return@launch
-                }
-                _uiState.update {
-                    it.copy(
-                        downloadProgress = 0f,
-                        downloadProgressText = "正在下载最新版本…",
-                        downloadDialogVisible = true,
+            val remoteVersion = withContext(Dispatchers.IO) {
+                runCatching {
+                    RemoteHttp.fetchText(RemoteEndpoints.ota("/releases/psaboxlite/lasted_version"))
+                }.getOrNull()?.trim().orEmpty()
+            }
+            val localVersion = runCatching { context.getAppVersionName() }.getOrDefault("")
+            val hasNew = remoteVersion.isNotEmpty() && remoteVersion != localVersion.trim()
+            val info = withContext(Dispatchers.IO) {
+                runCatching {
+                    RemoteHttp.fetchText(RemoteEndpoints.ota("/releases/psaboxlite/lasted_info"))
+                }.getOrNull()?.trim().orEmpty()
+            }
+            if (remoteVersion.isEmpty()) {
+                Toast.makeText(context, "检查失败，请稍后重试", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            _uiState.update {
+                it.copy(
+                    updatePrompt = UpdatePrompt(
+                        remoteVersion = remoteVersion,
+                        info = info.ifBlank { "本次更新没有填写更新日志。" },
+                        hasNew = hasNew,
                     )
-                }
+                )
+            }
+        }
+    }
+
+    /** 用户在新版日志框里点了「立即更新」——这时才开始下载安装。 */
+    fun startDownload() {
+        val prompt = _uiState.value.updatePrompt
+        _uiState.update { it.copy(updatePrompt = null) }
+        if (prompt == null || !prompt.hasNew) return
+        if (updateJob?.isActive == true) {
+            Toast.makeText(context, "正在下载，请稍候", Toast.LENGTH_SHORT).show()
+            return
+        }
+        updateJob = viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    downloadProgress = 0f,
+                    downloadProgressText = "正在下载最新版本…",
+                    downloadDialogVisible = true,
+                )
+            }
+            try {
                 when (val downloaded = ApkInstaller.download(
                     context,
                     RemoteApkSpec(
@@ -111,6 +143,11 @@ class AboutSettingsViewModel @Inject constructor(
                 _uiState.update { it.copy(downloadProgress = -1f, downloadDialogVisible = false) }
             }
         }
+    }
+
+    /** 更新日志框里点「保持当前版本」/ 遮罩关闭。 */
+    fun dismissUpdatePrompt() {
+        _uiState.update { it.copy(updatePrompt = null) }
     }
 
     /**
@@ -152,19 +189,6 @@ class AboutSettingsViewModel @Inject constructor(
         // 删不掉不致命：下次下载会覆盖同名 .part，成品也会被 MD5 校验挡住。
         listOf(File(dir, UPDATE_FILE_NAME), File(dir, "$UPDATE_FILE_NAME.part"))
             .forEach { it.takeIf(File::exists)?.delete() }
-    }
-
-    private fun fetchReleaseNote() = viewModelScope.launch {
-        runCatching { RemoteHttp.fetchText(RemoteEndpoints.ota("/releases/psaboxlite/lasted_info")) }
-            .getOrNull()
-            ?.takeIf { it.isNotBlank() }
-            ?.let { note ->
-                _uiState.update { it.copy(releaseNote = note) }
-            }
-    }
-
-    fun consumeReleaseNote() {
-        _uiState.update { it.copy(releaseNote = null) }
     }
 
     private companion object {
