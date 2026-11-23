@@ -63,7 +63,7 @@ object MemGuard {
 
     fun prefs(ctx: Context): SharedPreferences = ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
 
-    fun enabled(ctx: Context): Boolean = runCatching { prefs(ctx).getBoolean(K_ON, true) }.getOrDefault(true)
+    fun enabled(ctx: Context): Boolean = runCatching { prefs(ctx).getBoolean(K_ON, false) }.getOrDefault(false)
 
     fun setEnabled(ctx: Context, on: Boolean) {
         runCatching { prefs(ctx).edit().putBoolean(K_ON, on).apply() }

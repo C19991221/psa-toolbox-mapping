@@ -70,7 +70,7 @@ object StorageClean {
     /* ---------------- 开关与阈值 ---------------- */
 
     fun enabled(ctx: Context): Boolean =
-        runCatching { prefs(ctx).getBoolean(K_ON, true) }.getOrDefault(true)
+        runCatching { prefs(ctx).getBoolean(K_ON, false) }.getOrDefault(false)
 
     fun setEnabled(ctx: Context, on: Boolean) {
         prefs(ctx).edit().putBoolean(K_ON, on).apply()
@@ -87,21 +87,21 @@ object StorageClean {
     fun triggerLine(ctx: Context): String = "存储可用低于 ${availFloor(ctx)}% 时清理"
 
     fun javaDeep(ctx: Context): Boolean =
-        runCatching { prefs(ctx).getBoolean(K_DEEP, true) }.getOrDefault(true)
+        runCatching { prefs(ctx).getBoolean(K_DEEP, false) }.getOrDefault(false)
 
     fun setJavaDeep(ctx: Context, on: Boolean) {
         prefs(ctx).edit().putBoolean(K_DEEP, on).apply()
     }
 
     fun kwPlayCache(ctx: Context): Boolean =
-        runCatching { prefs(ctx).getBoolean(K_KW, true) }.getOrDefault(true)
+        runCatching { prefs(ctx).getBoolean(K_KW, false) }.getOrDefault(false)
 
     fun setKwPlayCache(ctx: Context, on: Boolean) {
         prefs(ctx).edit().putBoolean(K_KW, on).apply()
     }
 
     fun crashDiag(ctx: Context): Boolean =
-        runCatching { prefs(ctx).getBoolean(K_CRASH, true) }.getOrDefault(true)
+        runCatching { prefs(ctx).getBoolean(K_CRASH, false) }.getOrDefault(false)
 
     fun setCrashDiag(ctx: Context, on: Boolean) {
         prefs(ctx).edit().putBoolean(K_CRASH, on).apply()

@@ -162,13 +162,14 @@ fun MemGuardSection(topPad: Dp = 32.dp) {
         modifier = Modifier.padding(top = 16.dp),
         check = enabled,
         title = "可用内存过低时自动清理后台",
-        description = MemGuard.triggerLine(context),
+        description = MemGuard.triggerLine(context) + "。默认关闭，上电不会自动清理",
         onCheckedChange = {
             enabled = it
             MemGuard.setEnabled(context, it)
         },
     )
 
+    if (enabled) {
     SwitchGroup(
         modifier = Modifier.padding(top = 12.dp),
         check = level2,
@@ -183,6 +184,7 @@ fun MemGuardSection(topPad: Dp = 32.dp) {
             MemGuard.setLevel2(context, it)
         },
     )
+    }
 
     Text(
         modifier = Modifier.padding(top = 16.dp),
@@ -311,40 +313,24 @@ fun StorageCleanSection(topPad: Dp = 32.dp) {
 
     SwitchGroup(
         modifier = Modifier.padding(top = 16.dp),
-        check = shouldAutoClearSD,
-        title = "存储不足时自动清理大多数 APP 的缓存",
-        description = "白名单里的应用会跳过；与下面的「存储快满时自动清理」是两套机制，可同时开",
-        onCheckedChange = {
-            shouldAutoClearSD = it
-            sharedPrefs.edit().apply {
-                putBoolean("shouldAutoClearSD", it)
-                commit()
-            }
-            Toast.makeText(
-                context,
-                if (it) "缓存自动清理已开启" else "缓存自动清理已关闭",
-                Toast.LENGTH_SHORT,
-            ).show()
-        },
-    )
-
-    Text(
-        modifier = Modifier.padding(top = 20.dp),
-        text = "第二步：按下面勾选项做深度清理",
-        style = AppTheme.typography.bodyMedium,
-        color = AppTheme.colors.textColorSecondary,
-    )
-
-    SwitchGroup(
-        modifier = Modifier.padding(top = 16.dp),
         check = enabled,
-        title = "存储快满时自动清理",
-        description = StorageClean.triggerLine(context),
+        title = "存储不足时自动清理应用缓存",
+        description = StorageClean.triggerLine(context) +
+            "。默认关闭，上电不会自动清理；打开后只清下面勾选的目录",
         onCheckedChange = {
             enabled = it
             StorageClean.setEnabled(context, it)
+            if (it) {
+                // 打开总开关时给一套保守的默认范围（日志目录 + 酷我缓存 + 诊断包），
+                // 下面每一项都能单独关。
+                if (!javaDeep) { javaDeep = true; StorageClean.setJavaDeep(context, true) }
+                if (!kw) { kw = true; StorageClean.setKwPlayCache(context, true) }
+                if (!crashDiag) { crashDiag = true; StorageClean.setCrashDiag(context, true) }
+            }
         },
     )
+
+    if (enabled) {
 
     SwitchGroup(
         modifier = Modifier.padding(top = 12.dp),
@@ -387,6 +373,26 @@ fun StorageCleanSection(topPad: Dp = 32.dp) {
         onCheckedChange = {
             otherApp = it
             StorageClean.setOtherAppCache(context, it)
+        },
+    )
+    }
+
+    SwitchGroup(
+        modifier = Modifier.padding(top = 20.dp),
+        check = shouldAutoClearSD,
+        title = "存储极低（< 1 GB）时清理 /sdcard 临时文件",
+        description = "只清临时目录，下载 / 文档 / 音乐 / 图片 / 相机 / 影片 / PSA 日志都保留；默认关闭",
+        onCheckedChange = {
+            shouldAutoClearSD = it
+            sharedPrefs.edit().apply {
+                putBoolean("shouldAutoClearSD", it)
+                commit()
+            }
+            Toast.makeText(
+                context,
+                if (it) "存储极低时自动清理已开启" else "存储极低时自动清理已关闭",
+                Toast.LENGTH_SHORT,
+            ).show()
         },
     )
 

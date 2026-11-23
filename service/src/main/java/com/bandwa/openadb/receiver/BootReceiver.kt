@@ -39,9 +39,13 @@ class BootReceiver : BroadcastReceiver() {
                 }
 
                 // 清理不依赖界面，也没必要陪着下面那 10 秒一起等：先做。
-                // 两个 Guard 自己带开关、阈值与冷却，不满足时什么都不做。
-                runCatching { MemGuard.auto(context, "开机") }
-                runCatching { StorageClean.auto(context, "开机") }
+                // 2026-11-23 起两个开关默认全关：**没开就上电什么都不清**，开了才按各自阈值清。
+                if (MemGuard.enabled(context)) {
+                    runCatching { MemGuard.auto(context, "开机") }
+                }
+                if (StorageClean.enabled(context)) {
+                    runCatching { StorageClean.auto(context, "开机") }
+                }
 
                 delay(10000)
 
