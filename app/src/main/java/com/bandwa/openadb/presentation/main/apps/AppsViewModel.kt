@@ -38,12 +38,21 @@ class AppsViewModel @Inject constructor(
     private var installProgressJob: Job? = null
     private var installCompleting = false
 
-    private val packageAddedReceiver = object : BroadcastReceiver() {
+    /**
+     * 应用增删改都要重扫。
+     *
+     * 以前只收了 `ACTION_PACKAGE_ADDED`，而且还要 `remoteInstallRunning` 才 refresh ⇒
+     * 在系统设置里卸载一个应用、或者后台自动更新了某个应用，回到这一页看到的还是旧版本号
+     * （用户 m06160 报的第二个问题）。`ACTION_PACKAGE_REPLACED` 也会带 `EXTRA_REPLACING`，
+     * 不必区分，统一重扫。
+     */
+    private val packageChangedReceiver = object : BroadcastReceiver() {
         override fun onReceive(receiverContext: Context?, intent: Intent?) {
-            if (intent?.action == Intent.ACTION_PACKAGE_ADDED && _uiState.value.remoteInstallRunning) {
+            val action = intent?.action ?: return
+            if (action == Intent.ACTION_PACKAGE_ADDED && _uiState.value.remoteInstallRunning) {
                 markRemoteInstallCompleting()
-                refresh()
             }
+            refresh()
         }
     }
 
@@ -86,10 +95,14 @@ class AppsViewModel @Inject constructor(
 
     init {
         refresh()
-        val packageFilter = IntentFilter(Intent.ACTION_PACKAGE_ADDED).apply {
+        val packageFilter = IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_ADDED)
+            addAction(Intent.ACTION_PACKAGE_REMOVED)
+            addAction(Intent.ACTION_PACKAGE_REPLACED)
+            addAction(Intent.ACTION_PACKAGE_CHANGED)
             addDataScheme("package")
         }
-        context.registerReceiver(packageAddedReceiver, packageFilter)
+        context.registerReceiver(packageChangedReceiver, packageFilter)
         context.registerReceiver(installResultReceiver, IntentFilter(Utils.ACTION_INSTALL_COMMIT))
 
         viewModelScope.launch {
@@ -101,7 +114,7 @@ class AppsViewModel @Inject constructor(
 
     override fun onCleared() {
         installProgressJob?.cancel()
-        runCatching { context.unregisterReceiver(packageAddedReceiver) }
+        runCatching { context.unregisterReceiver(packageChangedReceiver) }
         runCatching { context.unregisterReceiver(installResultReceiver) }
         super.onCleared()
     }

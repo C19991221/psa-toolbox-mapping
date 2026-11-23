@@ -61,14 +61,17 @@ import com.bandwa.openadb.util.ShellUtils
 import com.bandwa.openadb.util.Utils
 import com.bandwa.openadb.util.Utils.PREFS_NAME
 import com.bandwa.openadb.service.ServiceLauncher.showQRCode
-import com.bandwa.openadb.service.install.ApkInstaller
 import com.bandwa.openadb.util.apktools.ApkInspector
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+/** 与 `Hook.DEFAULT_WALLPAPER_PATH` 保持一致（`Hook.java:36`）；那边是 private，这里只能重写一份。 */
+private const val DEFAULT_WALLPAPER_PATH = "/storage/emulated/0/launcherPic/wallpaper.png"
 
 @Composable
 fun LauncherSettingsDialog(
@@ -353,14 +356,44 @@ fun LauncherSettingsDialog(
     }
 }
 
+/**
+ * 恢复原厂壁纸。
+ *
+ * 这里**只删壁纸文件**，不卸载桌面包 —— 以前是 `ApkInstaller.uninstall("com.android.launcher")`，
+ * 等于把 `/data` 里我们改造过的桌面整个卸掉、回落到 `/system` 原厂版，用户点「恢复原厂壁纸」
+ * 结果桌面卡片缩放/删除这些功能一起没了（用户 m06160 报的就是这个）。
+ *
+ * 壁纸本身是 `Hook.applyWallpaper`（`Hook.java:201`）在桌面 View 上 `setBackground` 贴的：
+ * 配置里的路径（默认 `/storage/emulated/0/launcherPic/wallpaper.png`）文件不存在就直接
+ * `return`，什么都不贴 —— 所以删掉文件 + 重启一次桌面就等于恢复原厂壁纸。
+ */
 private fun restoreStockLauncher(context: Context, onSuccess: () -> Unit) {
     CoroutineScope(SupervisorJob() + Dispatchers.Main).launch {
-        if (ApkInstaller.uninstall(context.applicationContext, "com.android.launcher")) {
-            onSuccess()
-            Toast.makeText(context, "已恢复原厂壁纸", Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(context, "恢复原厂壁纸失败，请重试", Toast.LENGTH_SHORT).show()
+        val removed = withContext(Dispatchers.IO) {
+            runCatching {
+                val configured = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .getString("wallpaper_path", null)
+                val targets = listOfNotNull(DEFAULT_WALLPAPER_PATH, configured).distinct()
+                var any = false
+                targets.forEach { path ->
+                    val file = File(path)
+                    if (file.exists() && file.delete()) any = true
+                }
+                any
+            }.getOrDefault(false)
         }
+
+        // 不管文件在不在都重启一次桌面：文件可能是上次就删掉了，但桌面还挂着旧背景。
+        withContext(Dispatchers.IO) {
+            runCatching { ShellUtils.exec("am force-stop com.android.launcher") }
+        }
+
+        onSuccess()
+        Toast.makeText(
+            context,
+            if (removed) "已恢复原厂壁纸" else "壁纸本来就是原厂的，已刷新桌面",
+            Toast.LENGTH_SHORT
+        ).show()
     }
 }
 

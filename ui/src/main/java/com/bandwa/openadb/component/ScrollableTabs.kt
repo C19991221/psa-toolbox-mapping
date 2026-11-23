@@ -24,7 +24,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -36,6 +35,9 @@ import com.bandwa.openadb.presentation.ui.PSAHelperThemePreview
 import com.bandwa.openadb.preview.CombinedThemePreviews
 
 private const val TAB_ITEM_HEIGHT = 44
+
+/** 未选中项的背景：全透明，静态复用一份，避免每个 tab 每次重组都 new 一个 Brush。 */
+private val TransparentBrush = Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))
 
 
 @Composable
@@ -87,20 +89,29 @@ fun TabItemView(tab: TabItem, isSelected: Boolean, onClick: () -> Unit) {
 
     // 选中态用两层静态色替代原来的 alpha 动画 + 每项各自新建 Brush：
     // 11 个 tab 各跑一个 animateFloatAsState，滑动时每次状态变化都会让整列重组/重绘。
-    val background: Brush = if (isSelected) {
-        if (isLight) {
-            Brush.linearGradient(listOf(brand.copy(alpha = 0.15f), brand.copy(alpha = 0.05f)))
+    // 现在 Brush 也不每次新建了，remember 住，只有选中态/主题变化才重建。
+    val background: Brush = remember(isSelected, isLight, brand) {
+        if (isSelected) {
+            if (isLight) {
+                Brush.linearGradient(listOf(brand.copy(alpha = 0.15f), brand.copy(alpha = 0.05f)))
+            } else {
+                Brush.linearGradient(listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.15f)))
+            }
         } else {
-            Brush.linearGradient(listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.15f)))
+            TransparentBrush
         }
-    } else {
-        Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))
     }
     val contentColor = if (isSelected) {
         if (isLight) brand else Color.White
     } else {
         textPrimary
     }
+    // 未选中项用 0.65 的透明度。**不用 `Modifier.alpha`** —— 那会给每个 tab 单独开一层
+    // 图形层（11 个 tab 就是 11 层），滑动时每帧都要合成一遍。直接把透明度折进颜色里，
+    // 画出来的效果一样，但不产生额外的层。
+    val itemAlpha = if (isSelected) 1f else 0.65f
+    val rowContentColor = contentColor.copy(alpha = contentColor.alpha * itemAlpha)
+    val rowIconColor = if (isSelected) contentColor else iconPrimary.copy(alpha = iconPrimary.alpha * itemAlpha)
 
     Box(
         modifier = Modifier
@@ -128,20 +139,19 @@ fun TabItemView(tab: TabItem, isSelected: Boolean, onClick: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 16.dp)
-                .alpha(if (isSelected) 1f else 0.65f),
+                .padding(start = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 modifier = Modifier.size(22.dp),
                 painter = painterResource(id = tab.icon),
                 contentDescription = "Tab ${tab.title} icon",
-                tint = if (isSelected) contentColor else iconPrimary
+                tint = rowIconColor
             )
             Text(
                 modifier = Modifier.padding(start = 10.dp),
                 text = tab.title,
-                color = contentColor,
+                color = rowContentColor,
                 style = AppTheme.typography.titleMedium
             )
         }

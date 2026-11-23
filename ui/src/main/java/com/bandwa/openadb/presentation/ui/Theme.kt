@@ -95,9 +95,15 @@ fun PSAHelperTheme(
     }
     val fontScale = LocalFontScale.current
     val currentTypography = remember(fontScale) { scaledTypography(fontScale) }
+    // 调色板是自定义的 Color 数据类。以前每次重组都 `colorPalette()` 新建一个实例
+    // （里面 11 个 Color 函数调用），而 `LocalColorPalette` 是 staticCompositionLocalOf
+    // ⇒ 实例一变整棵用到它的树都要重组。这里按**实际解析出来的明暗**做 key ——
+    // 不能拿 `useDarkTheme` 当 key：那是系统明暗，用户手动选浅色/深色时它不变。
+    val light = isLightTheme()
+    val palette = remember(light) { colorPaletteOf(light) }
 
     CompositionLocalProvider(
-        LocalColorPalette provides colorPalette(),
+        LocalColorPalette provides palette,
     ) {
         MaterialTheme(
             colorScheme = colors,

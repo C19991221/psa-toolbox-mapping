@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -104,25 +105,29 @@ class ThemeManager @Inject constructor(
 
     @Composable
     fun getBackgroundBrush(): Brush {
-        return when (backgroundType) {
-            AppBackground.BLUE_GRADIENT -> Brush.linearGradient(
-                0.0f to Color(0xFF1E2AD2),
-                0.5f to Color(0xFF6A11CB),
-                1.0f to Color(0xFF2575FC)
-            )
-            AppBackground.ORANGE_GRADIENT -> Brush.linearGradient(
-                0.0f to Color(0xFFFF512F),
-                0.6f to Color(0xFFF09819),
-                1.0f to Color(0xFFFF2D55)
-            )
-            AppBackground.GREEN_GRADIENT -> Brush.linearGradient(
-                0.0f to Color(0xFF00B09B),
-                0.5f to Color(0xFF96C93D),
-                1.0f to Color(0xFF00D2FF)
-            )
-            else -> {
-                val color = AppTheme.colors.backgroundColor
-                Brush.linearGradient(listOf(color, color))
+        // 白色那段底色要在 remember 外面先取出来（Composable 调用不能进 remember 的
+        // calculation 块）。这两个容器是整屏大小，以前每次重组都新建一次 Brush，
+        // 现在只有背景类型/明暗真的变了才重建。
+        val light = isLightTheme()
+        val baseColor = AppTheme.colors.backgroundColor
+        return remember(backgroundType, light, baseColor) {
+            when (backgroundType) {
+                AppBackground.BLUE_GRADIENT -> Brush.linearGradient(
+                    0.0f to Color(0xFF1E2AD2),
+                    0.5f to Color(0xFF6A11CB),
+                    1.0f to Color(0xFF2575FC)
+                )
+                AppBackground.ORANGE_GRADIENT -> Brush.linearGradient(
+                    0.0f to Color(0xFFFF512F),
+                    0.6f to Color(0xFFF09819),
+                    1.0f to Color(0xFFFF2D55)
+                )
+                AppBackground.GREEN_GRADIENT -> Brush.linearGradient(
+                    0.0f to Color(0xFF00B09B),
+                    0.5f to Color(0xFF96C93D),
+                    1.0f to Color(0xFF00D2FF)
+                )
+                else -> Brush.linearGradient(listOf(baseColor, baseColor))
             }
         }
     }

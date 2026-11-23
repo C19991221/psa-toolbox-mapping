@@ -54,6 +54,11 @@ fun AppsRoute(
     var pending by remember { mutableStateOf<Pair<AppEntry, Action>?>(null) }
     var showInstallMarketDialog by remember { mutableStateOf(false) }
 
+    // 每次进这一页都重扫一次（ViewModel 是 Hilt 注入的、进程内复用，
+    // init 里那次扫描只在第一次进页面时算数）。用户 m06160 报的「版本号不是实时刷新」
+    // 除了靠包变动广播，还要靠这个兜底：比如在系统设置里改过什么、或从别的页切回来。
+    LaunchedEffect(Unit) { viewModel.refresh() }
+
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
