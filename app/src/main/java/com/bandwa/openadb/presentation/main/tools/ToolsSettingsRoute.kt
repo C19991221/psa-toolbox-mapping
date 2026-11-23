@@ -1,6 +1,7 @@
 package com.bandwa.openadb.presentation.main.tools
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,6 +32,7 @@ import com.bandwa.openadb.presentation.ui.md_theme_dark_surfaceTint
 import com.bandwa.openadb.presentation.ui.success_500
 import com.bandwa.openadb.preview.CombinedThemePreviews
 import com.bandwa.openadb.service.install.CoreComponent
+import com.bandwa.openadb.util.Utils
 import com.bandwa.openadb.presentation.ui.LiquidProgressDialog
 
 import androidx.compose.animation.core.animateFloatAsState
@@ -40,6 +42,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 @Composable
@@ -68,6 +71,59 @@ fun ToolsSettingsScreen(
     var repairProgress by remember { mutableStateOf(0f) }
     var repairProgressText by remember { mutableStateOf("") }
     var appsAnalysisInfo by remember { mutableStateOf<String?>(null) }
+    var repairFailure by remember {
+        mutableStateOf<CoreComponent.Result?>(null)
+    }
+    var showRestoreConfirmDialog by remember { mutableStateOf(false) }
+    var restoreStatus by remember { mutableStateOf<String?>(null) }
+    // 当前核心组件是不是注入版。PackageManager 是 IPC，放到 IO 线程查；
+    // 回滚成功和修复成功后都要重算，所以用 tick 触发。
+    var corePatched by remember { mutableStateOf(false) }
+    var corePatchedTick by remember { mutableStateOf(0) }
+    LaunchedEffect(corePatchedTick) {
+        corePatched = withContext(Dispatchers.IO) { CoreComponent.isPatched(context) }
+    }
+
+    if (showRestoreConfirmDialog) {
+        LiquidDialog(
+            onDismissRequest = { showRestoreConfirmDialog = false },
+            title = "恢复原厂核心组件",
+            content = "会卸载当前的注入版，退回车机 /system 里的原厂组件。\n\n" +
+                "卸载后按键映射、360 全景、媒体接管等全部恢复原厂行为，" +
+                "要重新使用需要再点一次「修复PSA工具箱」。\n\n" +
+                "只有在注入版明显不正常（比如启动就崩）时才需要这样做。",
+            cancelText = "取消",
+            confirmText = "恢复原厂",
+            onConfirm = {
+                showRestoreConfirmDialog = false
+                restoreStatus = "restoring"
+                CoreComponent.restoreStock(context) { ok ->
+                    restoreStatus = if (ok) "success" else "error"
+                    corePatchedTick++
+                }
+            },
+        )
+    }
+
+    if (restoreStatus == "success") {
+        LiquidDialog(
+            onDismissRequest = { restoreStatus = null },
+            title = "已恢复原厂",
+            content = "核心组件已退回原厂版本，车机功能正常。" +
+                "要重新使用工具箱的按键映射等功能，请点「修复PSA工具箱」。",
+            confirmText = "好的",
+        )
+    }
+
+    if (restoreStatus == "error") {
+        LiquidDialog(
+            onDismissRequest = { restoreStatus = null },
+            title = "恢复失败",
+            content = "没能退回原厂组件。可能是系统正忙，或 /system 里没有可用的原厂件。\n\n" +
+                "可以重启车机后再试一次。",
+            confirmText = "知道了",
+        )
+    }
 
     if (showRepairConfirmDialog) {
         LiquidDialog(
@@ -84,8 +140,10 @@ fun ToolsSettingsScreen(
                     context,
                     trigger = "手动修复PSA工具箱",
                     force = true,
-                ) { success ->
-                    repairStatus = if (success) "completing" else "error"
+                ) { result ->
+                    repairFailure = if (result.success) null else result
+                    repairStatus = if (result.success) "completing" else "error"
+                    corePatchedTick++
                 }
             },
         )
@@ -141,10 +199,20 @@ fun ToolsSettingsScreen(
     }
 
     if (repairStatus == "error") {
+        val failure = repairFailure
+        val detail = when {
+            failure?.rolledBack == true ->
+                "新组件装上后没能成功启动，已自动退回原厂组件，车机功能正常。\n\n" +
+                    "这台车机可能与环境不匹配，请把日志发给我们排查，暂时不要重复尝试修复。"
+            failure?.message?.isNotBlank() == true ->
+                "核心组件修复失败：${failure.message}。"
+            else ->
+                "核心组件修复失败，请检查车机存储空间或尝试重启工具箱后重试。"
+        }
         LiquidDialog(
-            onDismissRequest = { repairStatus = null },
+            onDismissRequest = { repairStatus = null; repairFailure = null },
             title = "修复失败",
-            content = "核心组件修复失败，请检查车机存储空间或尝试重启工具箱后重试。",
+            content = detail,
             confirmText = "重试",
             onConfirm = {
                 repairStatus = "installing"
@@ -152,8 +220,16 @@ fun ToolsSettingsScreen(
                     context,
                     trigger = "手动修复PSA工具箱（失败重试）",
                     force = true,
-                ) { success ->
-                    repairStatus = if (success) "completing" else "error"
+                ) { result ->
+                    repairFailure = if (result.success) null else result
+                    repairStatus = if (result.success) "completing" else "error"
+                    corePatchedTick++
+                    if (result.success) {
+                        // 修复成功解除启动时的「暂不修复」静音（键在 MainActivity 里定义，
+                        // 这里直接用同一个字符串，避免为一个常量跨模块暴露）。
+                        context.getSharedPreferences(Utils.PREFS_NAME, Context.MODE_PRIVATE)
+                            .edit().putBoolean("core_prompt_muted", false).apply()
+                    }
                 }
             },
             cancelText = "取消",
@@ -344,6 +420,25 @@ fun ToolsSettingsScreen(
         SelectionText(text = "修复PSA工具箱异常，若工作正常请勿使用此功能")
         TextButton(text = "修复PSA工具箱") {
             showRepairConfirmDialog = true
+        }
+
+        // 回滚出口（审计 M6）：核心组件是注入进 com.cusc.misc 的，它不在应用管理的
+        // 列表里，所以「装上了、跑起来崩」以前在界面上根本没有撤掉的办法。
+        // 只有当前确实是注入版时才显示 —— 已经是原厂件还点这一下没有意义。
+        if (corePatched) {
+            SelectionText(
+                modifier = Modifier.padding(top = 32.dp),
+                text = "注入版异常时退回原厂组件（按键映射、360 等功能会一起失效）",
+                showInfoButton = true,
+                infoClickListen = {
+                    appsAnalysisInfo = "会卸载 /data 里的注入版，系统自动回落到 " +
+                        "/system 里的原厂组件。装好之后如果核心组件启动就崩、" +
+                        "工具箱功能全部失效，用这个退回原厂，再用「修复PSA工具箱」重来。"
+                }
+            )
+            TextButton(text = "恢复原厂核心组件") {
+                showRestoreConfirmDialog = true
+            }
         }
     }
 }

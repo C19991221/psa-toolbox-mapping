@@ -24,10 +24,11 @@ ota/
 ├── psatoolbox.html                     # 系统设置页「公告栏」正文（纯文本，非 HTML 渲染）
 ├── releases/
 │   └── psaboxlite/
-│       ├── lasted_version              # 一行 versionName，如 5.3.4 by 天才大熊猫（与本地字符串相等＝已最新）
+│       ├── lasted_version              # 一行 versionName，如 工具箱开发版5.3.16 (build 28)（与本地字符串相等＝已最新）
 │       ├── lasted.apk                  # 最新安装包本体
 │       ├── lasted_md5                  # 一行 md5 小写十六进制，用于下载校验
-│       └── lasted_info                 # 「新版特性」弹窗正文（纯文本）
+│       ├── lasted_info                 # 最新一版的更新日志（纯文本，老逻辑回落用）
+│       └── lasted_history              # 最近 10 个版本的更新日志，条目以「### 版本号」开头
 └── tools/
     ├── hicar/
     │   ├── hicar_fix.apk               # HiCar 方控修复包（标致用）
@@ -52,19 +53,25 @@ ota/
 | --- | --- | --- |
 | `*_version` | 一行版本号纯文本 | 与设备上该包的 `versionName` **字符串相等**＝已最新；**读不到（404/超时）一律当作有新版本** |
 | `*_md5` | 一行 md5，小写十六进制即可（比较时忽略大小写） | 下载后校验；**空文件会直接抛「校验文件为空」** |
-| `lasted_info` | 任意纯文本 | 只在「已是最新」时拉来当「新版特性」弹窗内容；为空不弹 |
+| `lasted_info` | 任意纯文本 | 最新一版的更新日志；`lasted_history` 读不到时回落用它 |
+| `lasted_history` | 纯文本，条目以 `### 版本号` 开头，条目间空行 | 「检查更新」弹窗优先读它，显示最近 10 个版本的日志；发布脚本会按 `HISTORY_MAX=10` 自动截断 |
 
 ## 怎么发一版新的
 
 用本目录里的 `publish_ota.py`（即仓库根的 `ota/publish_ota.py`）：
 
 ```powershell
-python ota\publish_ota.py --apk app\build\outputs\apk\release\app-release.apk --version "5.3.4 by 天才大熊猫"
+python ota\publish_ota.py --apk app\build\outputs\apk\release\app-release.apk --info 更新日志.txt
 ```
 
-它会写出 `lasted_version` / `lasted_md5` / `lasted.apk`（复制）/ `lasted_info` 的骨架。
+版本号**不用传**：脚本自动读仓库根的 `version.properties`（`marketing` + `build`），拼成
+`工具箱开发版<marketing> (build <build>)`，与 `app/build.gradle.kts` 用同一份数据。
+它会写出 `lasted_version` / `lasted_md5` / `lasted.apk`（复制）/ `lasted_info` / `lasted_history`，
+并自动在正文前加一行 `发布时间：YYYY-MM-DD HH:MM`。
 
-⚠ `--version` 必须与 `app/build.gradle.kts` 的 `versionName` **完全一致**（含空格与中文），否则设备永远判「有新版本」并反复下载 —— 检查更新是字符串相等比较。
+⚠ 版本号必须与 `app/build.gradle.kts` 算出的 `versionName` **完全一致**（含空格与中文），
+否则设备永远判「有新版本」并反复下载 —— 检查更新是字符串相等比较。
+出包前先 `python bump_build.py` 递增 build 号，两边就自动一致了。
 
 ## 注意
 

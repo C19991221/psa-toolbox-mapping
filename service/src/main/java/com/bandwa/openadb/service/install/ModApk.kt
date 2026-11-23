@@ -5,6 +5,7 @@ import android.util.Log
 import com.bandwa.openadb.service.BuildConfig
 import com.bandwa.openadb.service.install.ApkInstaller
 import com.bandwa.openadb.util.HookState
+import com.bandwa.openadb.util.ShellUtils
 import com.bandwa.openadb.util.Utils
 import com.bandwa.openadb.util.apktools.ApkInspector
 import com.bandwa.openadb.util.apktools.ApkSignUtil
@@ -26,6 +27,24 @@ import java.io.File
 object ModApk {
     private const val TAG = "ModApk"
 
+    /**
+     * 注入结果。
+     *
+     * [Skipped] 必须与 [Installed] 分开：调用方装完要做「新进程活过来了没」的自检，
+     * 而跳过时根本没装任何东西，宿主进程也没被杀，拿跳过去做自检只会得出
+     * 「起不来」的假结论，把好好的组件白回滚掉。
+     */
+    enum class Outcome {
+        /** 打包、安装都已发起（真正的安装结果由 ApkInstallService 异步收敛）。 */
+        Installed,
+
+        /** 已经是目标版本且 `force=false`，什么都没做。 */
+        Skipped,
+
+        /** 打包/签名/装前自检失败，车机上原有的那份没动。 */
+        Failed,
+    }
+
     /** 从 /system 原厂件打补丁并安装；已装补丁版本且未 force 时直接跳过。 */
     fun packageMod(
         context: Context,
@@ -33,18 +52,24 @@ object ModApk {
         force: Boolean = false,
         onComplete: (Boolean) -> Unit
     ) {
+        packageModResult(context, targetPackageName, force) { onComplete(it == Outcome.Installed || it == Outcome.Skipped) }
+    }
+
+    /** 与 [packageMod] 同一套流程，但把「跳过」与「真装了」分开报给调用方。 */
+    fun packageModResult(
+        context: Context,
+        targetPackageName: String,
+        force: Boolean = false,
+        onComplete: (Outcome) -> Unit
+    ) {
         CoroutineScope(Dispatchers.IO).launch {
-            var success = false
+            var outcome = Outcome.Failed
             try {
                 val installedPath = getInstalledApkPath(context, targetPackageName)
                 val isInstalledInData = installedPath != null && installedPath.startsWith("/data/")
                 Log.d(TAG, "$targetPackageName installed path: $installedPath (in data: $isInstalledInData)")
 
-                val stockApkPath = when (targetPackageName) {
-                    "com.cusc.misc" -> "/system/app/PSA_Misc/PSA_Misc.apk"
-                    "com.android.launcher" -> "/system/app/PSA_Launcher/PSA_Launcher.apk"
-                    else -> null
-                }
+                val stockApkPath = stockApkPathOf(targetPackageName)
 
                 if (stockApkPath == null) {
                     throw Exception("Unknown core package: $targetPackageName")
@@ -66,7 +91,7 @@ object ModApk {
                 }
                 if (!force && isInstalledInData && patched) {
                     Log.d(TAG, "$targetPackageName already patched, skipping")
-                    withContext(Dispatchers.Main) { onComplete(true) }
+                    withContext(Dispatchers.Main) { onComplete(Outcome.Skipped) }
                     return@launch
                 }
 
@@ -84,16 +109,28 @@ object ModApk {
                     context, targetPackageName, sourceApkPath, workspaceDir, signTool
                 )
                 if (outputApk != null) {
+                    // 装前自检：打好的包里必须真带着 Hook 类。hook.dex 缺失时注入仍会「成功」，
+                    // 但宿主每次启动都会在 Hook.install 之外抛 NoClassDefFoundError（审计 H2），
+                    // 装上就再也开不了机。这里拦在装之前 —— 失败的话车机上那份更新原封不动。
+                    if (!ApkInspector.containsHookClasses(outputApk.absolutePath)) {
+                        throw Exception("补丁包缺少 Hook 类（hook.dex 未打进 dex），已中止安装")
+                    }
                     // 打包与签名都成功之后才卸更新：这一步之前失败，车机上那份更新原封不动
                     if (isInstalledInData) uninstallUpdateAwait(context, targetPackageName)
-                    ApkInstaller.start(context, outputApk, targetPackageName)
-                    success = true
+                    // 必须等安装真的回执再报成功（审计 H2：以前是 fire-and-forget，
+                    // 「装失败了」也会当成装上，后面那套装完自检就永远等不到回报）。
+                    when (val r = ApkInstaller.install(context, outputApk, targetPackageName)) {
+                        is ApkInstaller.InstallResult.Success -> outcome = Outcome.Installed
+                        is ApkInstaller.InstallResult.Failure ->
+                            throw Exception("安装失败：${r.message}")
+                        ApkInstaller.InstallResult.Timeout -> throw Exception("安装超时")
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "packageMod failed for $targetPackageName", e)
             }
             withContext(Dispatchers.Main) {
-                onComplete(success)
+                onComplete(outcome)
             }
         }
     }
@@ -101,6 +138,58 @@ object ModApk {
     private suspend fun uninstallUpdateAwait(context: Context, targetPackageName: String) {
         val success = ApkInstaller.uninstall(context, targetPackageName)
         Log.d(TAG, "$targetPackageName uninstall update finished, success=$success")
+    }
+
+    /** 已知可注入包名 → `/system` 原厂件路径。 */
+    fun stockApkPathOf(targetPackageName: String): String? = when (targetPackageName) {
+        "com.cusc.misc" -> "/system/app/PSA_Misc/PSA_Misc.apk"
+        "com.android.launcher" -> "/system/app/PSA_Launcher/PSA_Launcher.apk"
+        else -> null
+    }
+
+    /** 当前装的是 `/data` 里的更新（即注入版）而不是 `/system` 原厂件。 */
+    fun isPatchedInstall(context: Context, targetPackageName: String): Boolean {
+        val path = getInstalledApkPath(context, targetPackageName) ?: return false
+        return path.startsWith("/data/")
+    }
+
+    /**
+     * 退回 `/system` 原厂件：卸载 `/data` 里的更新，系统自动回落到 `/system`。
+     *
+     * 审计 H2/M6 的兜底 —— 「装上了、跑起来崩」在界面上必须有一条能走通的路。
+     * 卸载由 PackageInstaller 完成，不依赖被卸载的进程还能不能跑；即使 misc 现在
+     * 每次启动都崩，这条路照样有效。
+     *
+     * @param onComplete true 表示卸载成功（此时 `pm path` 已指回 `/system`）。
+     */
+    fun restoreStock(context: Context, targetPackageName: String, onComplete: (Boolean) -> Unit) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val stock = stockApkPathOf(targetPackageName)
+            if (stock == null) {
+                Log.w(TAG, "restore stock: unknown package $targetPackageName")
+                withContext(Dispatchers.Main) { onComplete(false) }
+                return@launch
+            }
+            if (!File(stock).exists()) {
+                // 没有 /system 原厂件可回：卸掉更新 = 包直接消失，比崩着更糟，不动。
+                Log.w(TAG, "restore stock: $stock missing, refuse to uninstall $targetPackageName")
+                withContext(Dispatchers.Main) { onComplete(false) }
+                return@launch
+            }
+            if (!isPatchedInstall(context, targetPackageName)) {
+                Log.i(TAG, "restore stock: $targetPackageName already stock")
+                withContext(Dispatchers.Main) { onComplete(true) }
+                return@launch
+            }
+            val ok = ApkInstaller.uninstall(context, targetPackageName)
+            Log.i(TAG, "restore stock: $targetPackageName uninstall success=$ok")
+            if (ok) {
+                HookState.forget(targetPackageName)
+                // 原厂进程是旧代码，正在跑的那份还带着我们的补丁，必须重启一次才真正回到原厂。
+                runCatching { ShellUtils.execArgs(listOf("am", "force-stop", targetPackageName)) }
+            }
+            withContext(Dispatchers.Main) { onComplete(ok) }
+        }
     }
 
     private suspend fun runFastPack(

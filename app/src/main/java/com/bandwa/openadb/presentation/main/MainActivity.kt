@@ -77,6 +77,12 @@ import dagger.hilt.android.AndroidEntryPoint
 import com.umeng.commonsdk.UMConfigure
 import javax.inject.Inject
 
+/**
+ * 「暂不修复」的静音标记。为 true 时启动不再弹强制修复框（审计 M6：退回原厂后
+ * 每次开都会被堵住）。修复成功时清回 false。
+ */
+private const val CORE_PROMPT_MUTED_KEY = "core_prompt_muted"
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
@@ -134,13 +140,20 @@ fun HomeScreen(activity: Activity) {
     }
     var showCoreInstallDialog by remember { mutableStateOf(false) }
     var coreInstallStatus by remember { mutableStateOf<String?>(null) }
+    var coreInstallFailure by remember {
+        mutableStateOf<com.bandwa.openadb.service.install.CoreComponent.Result?>(null)
+    }
     var coreInstallProgress by remember { mutableStateOf(0f) }
     var coreInstallProgressText by remember { mutableStateOf("") }
 
     LaunchedEffect(showTermsDialog) {
         if (!showTermsDialog) {
             val compatMode = sharedPrefs.getBoolean(COMPAT_MODE_KEY, false)
-            if (!compatMode && coreNeedsInstall(context)) {
+            // 用户主动「暂不修复」过就不再每次启动都堵一次（审计 M6：以前这个框
+            // 既不能取消也不能关，退回原厂之后每次开都弹）。手动修复成功后这个
+            // 标记会被清掉，所以下次版本不匹配时照样会提示。
+            val muted = sharedPrefs.getBoolean(CORE_PROMPT_MUTED_KEY, false)
+            if (!compatMode && !muted && coreNeedsInstall(context)) {
                 showCoreInstallDialog = true
             }
         }
@@ -162,9 +175,23 @@ fun HomeScreen(activity: Activity) {
                     context,
                     trigger = "首次打开或版本不匹配",
                     force = false,
-                ) { success ->
-                    coreInstallStatus = if (success) "completing" else "error"
+                ) { result ->
+                    // result.success=false 且 result.rolledBack=true 表示装了但起不来、
+                    // 已自动退回原厂（审计 H2 的兜底），界面上要说清楚。
+                    coreInstallFailure = if (result.success) null else result
+                    coreInstallStatus = if (result.success) "completing" else "error"
+                    if (result.success) {
+                        // 修复成功后解除「暂不修复」的静音，下次版本再变还会提示。
+                        sharedPrefs.edit().putBoolean(CORE_PROMPT_MUTED_KEY, false).apply()
+                    }
                 }
+            },
+            cancelText = "暂不修复",
+            onCancel = {
+                // 记下「用户已知情并选择先不修复」，免得每次启动都被挡住。
+                // 手动修复成功、或在维护诊断里点修复成功，都会把这个标记清掉。
+                sharedPrefs.edit().putBoolean(CORE_PROMPT_MUTED_KEY, true).apply()
+                showCoreInstallDialog = false
             },
         )
     }
@@ -211,24 +238,49 @@ fun HomeScreen(activity: Activity) {
         }
         "success" -> {
             LiquidDialog(
-                onDismissRequest = { coreInstallStatus = null; showCoreInstallDialog = false },
+                onDismissRequest = {
+                    coreInstallStatus = null
+                    coreInstallFailure = null
+                    showCoreInstallDialog = false
+                },
                 title = "修复成功",
                 content = "车机环境已修复，工具箱的全部功能可以正常使用了。",
                 confirmText = "好的",
             )
         }
         "error" -> {
+            // 三种失败要说清楚，尤其「装了但起不来、已自动退回原厂」——
+            // 那种情况车机是好的，只是这个包在这台车上跑不起来。
+            val failure = coreInstallFailure
+            val detail = when {
+                failure?.rolledBack == true ->
+                    "新组件装上后没能成功启动，已自动退回原厂组件，车机功能正常。\n\n" +
+                        "这台车机可能与环境不匹配，请把日志发给我们排查，暂时不要重复尝试修复。"
+                failure?.message?.isNotBlank() == true ->
+                    "车机环境修复失败：${failure.message}。\n\n" +
+                        "建议：清理一点存储空间后重试；仍然失败可以重启车机再试，" +
+                        "也可以到「维护诊断 → 修复PSA工具箱」手动重试。"
+                else ->
+                    "车机环境修复失败。常见原因是存储空间不足，或核心组件正被系统占用。\n\n" +
+                        "建议：清理一点存储空间后重试；仍然失败可以重启车机再试，" +
+                        "也可以到「维护诊断 → 修复PSA工具箱」手动重试。"
+            }
             LiquidDialog(
-                onDismissRequest = { coreInstallStatus = null },
+                onDismissRequest = {
+                    coreInstallStatus = null
+                    coreInstallFailure = null
+                },
                 title = "修复失败",
-                content = "车机环境修复失败。常见原因是存储空间不足，或核心组件正被系统占用。\n\n" +
-                    "建议：清理一点存储空间后重试；仍然失败可以重启车机再试，" +
-                    "也可以到「维护诊断 → 修复PSA工具箱」手动重试。",
+                content = detail,
                 confirmText = "重试",
-                onConfirm = { showCoreInstallDialog = true },
+                onConfirm = {
+                    coreInstallFailure = null
+                    showCoreInstallDialog = true
+                },
                 cancelText = "暂时跳过",
                 onCancel = {
                     coreInstallStatus = null
+                    coreInstallFailure = null
                     showCoreInstallDialog = false
                 },
             )

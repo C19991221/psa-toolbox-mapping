@@ -79,10 +79,17 @@ class AboutSettingsViewModel @Inject constructor(
             }
             val localVersion = runCatching { context.getAppVersionName() }.getOrDefault("")
             val hasNew = remoteVersion.isNotEmpty() && remoteVersion != localVersion.trim()
+            // 用户 2026-11-23 要求日志里显示最近 10 个版本：优先读 lasted_history
+            // （发布脚本维护的整段历史），读不到再回落 lasted_info（只有最新一版）。
             val info = withContext(Dispatchers.IO) {
-                runCatching {
-                    RemoteHttp.fetchText(RemoteEndpoints.ota("/releases/psaboxlite/lasted_info"))
+                val history = runCatching {
+                    RemoteHttp.fetchText(RemoteEndpoints.ota("/releases/psaboxlite/lasted_history"))
                 }.getOrNull()?.trim().orEmpty()
+                history.ifBlank {
+                    runCatching {
+                        RemoteHttp.fetchText(RemoteEndpoints.ota("/releases/psaboxlite/lasted_info"))
+                    }.getOrNull()?.trim().orEmpty()
+                }
             }
             if (remoteVersion.isEmpty()) {
                 Toast.makeText(context, "检查失败，请稍后重试", Toast.LENGTH_SHORT).show()

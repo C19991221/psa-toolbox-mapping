@@ -33,6 +33,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # 版本号唯一真源：仓库根目录 version.properties（与 app/build.gradle.kts 共用）
 VERSION_PROPS = os.path.join(os.path.dirname(HERE), "version.properties")
 
+# 历史更新日志（最近 N 个版本，最新在前）。客户端优先读它，读不到回落 lasted_info。
+HISTORY_NAME = "lasted_history"
+HISTORY_MAX = 10
+
 
 def read_version_props(path=VERSION_PROPS):
     """读 marketing / build，返回拼接后的 versionName（与 build.gradle.kts 一致）。"""
@@ -49,6 +53,26 @@ def read_version_props(path=VERSION_PROPS):
     if "marketing" not in data or "build" not in data:
         return None
     return "工具箱开发版%s (build %s)" % (data["marketing"], data["build"])
+
+
+def read_history(path):
+    """读已有的 lasted_history，按「### 」切成条目列表（最新在前）。"""
+    if not os.path.isfile(path):
+        return []
+    with open(path, "r", encoding="utf-8") as f:
+        text = f.read()
+    parts = []
+    cur = []
+    for line in text.splitlines():
+        if line.startswith("### "):
+            if cur:
+                parts.append("\n".join(cur).strip("\n"))
+            cur = [line]
+        elif cur:
+            cur.append(line)
+    if cur:
+        parts.append("\n".join(cur).strip("\n"))
+    return [p for p in parts if p]
 
 
 def md5_of(path):
@@ -134,6 +158,18 @@ def main():
     dst_apk = os.path.join(out, args.name)
     shutil.copyfile(apk, dst_apk)
     print("写入    : %s (%d B)" % (dst_apk, os.path.getsize(dst_apk)))
+
+    # 更新日志历史（用户 2026-11-23 要求：日志里显示最近 10 个版本）。
+    # lasted_info 只保留最新一版（老设备/老逻辑仍在读它），lasted_history 是整段历史，
+    # 客户端优先读 lasted_history，读不到再回落 lasted_info。
+    hist_path = os.path.join(out, HISTORY_NAME)
+    if info is not None:
+        entries = read_history(hist_path)
+        heading = "### %s" % version
+        entries = [e for e in entries if not e.startswith(heading + "\n")]
+        entries.insert(0, "%s\n%s" % (heading, info.strip("\n")))
+        entries = entries[:HISTORY_MAX]
+        targets[HISTORY_NAME] = "\n\n".join(entries)
 
     for name, content in targets.items():
         if content is None:
