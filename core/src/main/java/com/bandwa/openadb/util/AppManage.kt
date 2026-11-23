@@ -201,11 +201,21 @@ object AppManage {
         return if (bad) "shell 失败：${out.take(200)}" else null
     }
 
-    /** 清缓存/清数据：先系统隐藏 API，失败再走 shell。返回 null = 成功。 */
+    /**
+     * 清缓存/清数据。返回 null = 成功。
+     *
+     * 2026-11-23 用户反馈「比安卓自带设置的应用管理慢很多」⇒ 顺序反过来：
+     * **先走 shell**（`pm clear` 实测 120~160ms 就返回），再用隐藏 API 兜底。
+     *
+     * 原来先走隐藏 API，而 `clearApplicationUserData` 是 void、`deleteApplicationCacheFiles`
+     * 的 `IPackageDataObserver` 回调在部分 ROM（这台 Huawei 就是）根本不回来 ⇒
+     * 每次都硬等满 [PM_CLEAR_TIMEOUT_MS]（20 秒）才回落 shell，这就是「慢很多」的全部原因。
+     * 本应用是 `android.uid.system`，`pm clear` 一定会被受理，所以快路径放它。
+     */
     fun clear(ctx: Context, pkg: String, cacheOnly: Boolean): String? {
         if (!PKG_RE.matches(pkg)) return "包名不合法：$pkg"
-        val err = clearHidden(ctx, pkg, cacheOnly)
+        val err = clearByShell(pkg, cacheOnly)
         if (err == null) return null
-        return clearByShell(pkg, cacheOnly)
+        return clearHidden(ctx, pkg, cacheOnly)
     }
 }

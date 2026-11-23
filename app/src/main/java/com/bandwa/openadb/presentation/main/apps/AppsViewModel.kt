@@ -11,7 +11,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bandwa.openadb.service.InstallShafa.installSFGJ
 import com.bandwa.openadb.service.ServiceLauncher.showQRCode
-import com.bandwa.openadb.service.install.ApkInstaller
 import com.bandwa.openadb.util.AppEntry
 import com.bandwa.openadb.util.AppManage
 import com.bandwa.openadb.util.Utils
@@ -132,34 +131,6 @@ class AppsViewModel @Inject constructor(
                     // 注意：中文也是合法标识符字符，`$what已清除` 会被当成变量名 ⇒ 必须用 ${'$'}{what}
                     message = if (err == null) "${row.label}的$what 已清除" else "清除失败：$err",
                 )
-            }
-        } finally {
-            _uiState.update { it.copy(busyPkg = null, busyText = "") }
-        }
-    }
-
-    /** 卸载更新 / 卸载应用。走 PackageInstaller（不依赖 shell）。 */
-    fun uninstall(row: AppEntry) = viewModelScope.launch {
-        val asUpdate = AppManage.uninstallKind(row) == AppManage.UninstallKind.UPDATE
-        _uiState.update {
-            it.copy(
-                busyPkg = row.pkg,
-                busyText = if (asUpdate) "正在卸载${row.label}的更新…" else "正在卸载${row.label}…",
-            )
-        }
-        try {
-            val ok = withContext(Dispatchers.IO) { ApkInstaller.uninstall(context, row.pkg) }
-            if (ok) {
-                // 卸载完包信息变了，重新扫一遍
-                val rows = withContext(Dispatchers.IO) { AppManage.scan(context) }
-                _uiState.update {
-                    it.copy(
-                        rows = AppManage.sort(rows, it.sort),
-                        message = if (asUpdate) "${row.label}的更新已卸载" else "${row.label}已卸载",
-                    )
-                }
-            } else {
-                _uiState.update { it.copy(message = if (asUpdate) "卸载更新失败" else "卸载失败") }
             }
         } finally {
             _uiState.update { it.copy(busyPkg = null, busyText = "") }

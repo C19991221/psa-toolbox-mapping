@@ -115,11 +115,6 @@ fun AppsRoute(
             content = when (action) {
                 Action.CLEAR_CACHE -> "将清除「${row.label}」的缓存，不影响登录状态和设置。"
                 Action.CLEAR_DATA -> "将清除「${row.label}」的全部数据，等于恢复成刚装好的样子，登录状态会丢。"
-                Action.UNINSTALL -> if (AppManage.uninstallKind(row) == AppManage.UninstallKind.UPDATE) {
-                    "将卸载「${row.label}」的更新，退回车机自带的那一版。"
-                } else {
-                    "将卸载「${row.label}」，卸载后这个应用就没了。"
-                }
             },
             cancelText = "取消",
             confirmText = "确认",
@@ -127,7 +122,6 @@ fun AppsRoute(
                 when (action) {
                     Action.CLEAR_CACHE -> viewModel.clear(row, cacheOnly = true)
                     Action.CLEAR_DATA -> viewModel.clear(row, cacheOnly = false)
-                    Action.UNINSTALL -> viewModel.uninstall(row)
                 }
                 pending = null
             },
@@ -150,7 +144,6 @@ fun AppsRoute(
 private enum class Action(val title: String) {
     CLEAR_CACHE("清缓存确认"),
     CLEAR_DATA("清数据确认"),
-    UNINSTALL("卸载确认"),
 }
 
 @Composable
@@ -317,16 +310,13 @@ private fun AppRowItem(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 TextButton(text = "清缓存") { onAction(row, Action.CLEAR_CACHE) }
-                // 桌面被清数据或卸载就没有桌面可用，只留「清缓存」
+                // 桌面被清数据就没有桌面可用，只留「清缓存」
+                //
+                // 2026-11-23 用户要求：应用管理里**去掉「卸载」/「卸载更新」**，只保留
+                // 清缓存与清数据。卸载改到系统自带的「设置 → 应用」里做 —— 那边的判断
+                // 更准（我们这边曾把 /data 里的高德误判成可卸载的第三方包）。
                 if (!AppManage.isProtected(row.pkg)) {
                     TextButton(text = "清数据") { onAction(row, Action.CLEAR_DATA) }
-                    when (AppManage.uninstallKind(row)) {
-                        AppManage.UninstallKind.UPDATE ->
-                            TextButton(text = "卸载更新") { onAction(row, Action.UNINSTALL) }
-                        AppManage.UninstallKind.APP ->
-                            TextButton(text = "卸载") { onAction(row, Action.UNINSTALL) }
-                        AppManage.UninstallKind.NONE -> Unit
-                    }
                 }
             }
         }
