@@ -320,14 +320,6 @@ fun StorageCleanSection(topPad: Dp = 32.dp) {
         color = AppTheme.colors.textColorSecondary,
     )
 
-    Text(
-        modifier = Modifier.padding(top = 12.dp),
-        text = "触发线：${StorageClean.triggerLine(context)}　·　白名单：" +
-            "${sharedPrefs.getStringSet("cacheWhitelist", emptySet())?.size ?: 0} 个应用（这些应用的缓存不会被清）",
-        style = AppTheme.typography.bodyMedium,
-        color = AppTheme.colors.textColorSecondary,
-    )
-
     SwitchGroup(
         modifier = Modifier.padding(top = 16.dp),
         check = enabled,
@@ -411,6 +403,14 @@ fun StorageCleanSection(topPad: Dp = 32.dp) {
                 Toast.LENGTH_SHORT,
             ).show()
         },
+    )
+
+    Text(
+        modifier = Modifier.padding(top = 12.dp),
+        text = "触发线：${StorageClean.triggerLine(context)}　·　白名单：" +
+            "${sharedPrefs.getStringSet("cacheWhitelist", emptySet())?.size ?: 0} 个应用（这些应用的缓存不会被清）",
+        style = AppTheme.typography.bodyMedium,
+        color = AppTheme.colors.textColorSecondary,
     )
 
     Row(
