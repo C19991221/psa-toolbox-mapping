@@ -188,7 +188,7 @@ fun MemGuardSection(topPad: Dp = 32.dp) {
 
     Text(
         modifier = Modifier.padding(top = 16.dp),
-        text = "触发线：${MemGuard.triggerLine(context)}\n名单：${MemGuard.listText(context)}",
+        text = "触发线：${MemGuard.triggerLine(context)}　·　名单：${MemGuard.listText(context)}",
         style = AppTheme.typography.bodyMedium,
         color = AppTheme.colors.textColorSecondary,
     )
@@ -225,6 +225,7 @@ fun StorageCleanSection(topPad: Dp = 32.dp) {
     val context = LocalContext.current
     val sharedPrefs = remember { context.getSharedPreferences("MyPrefs", Context.MODE_PRIVATE) }
     var shouldAutoClearSD by remember { mutableStateOf(sharedPrefs.getBoolean("shouldAutoClearSD", false)) }
+    var editFloor by remember { mutableStateOf(false) }
     var showCleanConfirm by remember { mutableStateOf(false) }
     var showWhitelistDialog by remember { mutableStateOf(false) }
     var whitelistInfo by remember { mutableStateOf<String?>(null) }
@@ -252,6 +253,25 @@ fun StorageCleanSection(topPad: Dp = 32.dp) {
                 cleanStorage(context)
                 Toast.makeText(context, "清理缓存成功", Toast.LENGTH_SHORT).show()
                 showCleanConfirm = false
+            },
+        )
+    }
+
+    if (editFloor) {
+        LiquidInputDialog(
+            onDismissRequest = { editFloor = false },
+            title = "自动清理触发线",
+            hint = "存储可用低于这个百分比时自动清理（1~90）",
+            initialValue = StorageClean.availFloor(context).toString(),
+            onConfirm = { input ->
+                val v = input.trim().toIntOrNull()
+                if (v == null || v !in 1..90) {
+                    Toast.makeText(context, "请输入 1~90 的整数", Toast.LENGTH_SHORT).show()
+                } else {
+                    StorageClean.setAvailFloor(context, v)
+                    Toast.makeText(context, "已设为 ${StorageClean.triggerLine(context)}", Toast.LENGTH_SHORT).show()
+                }
+                editFloor = false
             },
         )
     }
@@ -301,15 +321,12 @@ fun StorageCleanSection(topPad: Dp = 32.dp) {
     )
 
     Text(
-        modifier = Modifier.padding(top = 16.dp),
-        text = "第一步：清各应用缓存（工具箱自带，清 /sdcard 与 Android/data 里的临时文件）",
+        modifier = Modifier.padding(top = 12.dp),
+        text = "触发线：${StorageClean.triggerLine(context)}　·　白名单：" +
+            "${sharedPrefs.getStringSet("cacheWhitelist", emptySet())?.size ?: 0} 个应用（这些应用的缓存不会被清）",
         style = AppTheme.typography.bodyMedium,
         color = AppTheme.colors.textColorSecondary,
     )
-    Row(modifier = Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        TextButton(text = "清理缓存") { showCleanConfirm = true }
-        TextButton(text = "管理白名单") { showWhitelistDialog = true }
-    }
 
     SwitchGroup(
         modifier = Modifier.padding(top = 16.dp),
@@ -396,10 +413,25 @@ fun StorageCleanSection(topPad: Dp = 32.dp) {
         },
     )
 
-    Row(modifier = Modifier.padding(top = 16.dp)) {
+    Row(
+        modifier = Modifier.padding(top = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        TextButton(text = "改触发线") { editFloor = true }
+        TextButton(text = "改名单") { showWhitelistDialog = true }
         TextButton(text = if (busy) "清理中…" else "立即清理") {
             if (!busy) confirmClean = true
         }
+    }
+
+    Text(
+        modifier = Modifier.padding(top = 20.dp),
+        text = "工具箱自带的深度清理（清 /sdcard 根目录临时文件夹与各应用 cache，白名单里的应用跳过）",
+        style = AppTheme.typography.bodyMedium,
+        color = AppTheme.colors.textColorSecondary,
+    )
+    Row(modifier = Modifier.padding(top = 8.dp)) {
+        TextButton(text = "清理缓存") { showCleanConfirm = true }
     }
 
     if (resultText.isNotEmpty()) {
