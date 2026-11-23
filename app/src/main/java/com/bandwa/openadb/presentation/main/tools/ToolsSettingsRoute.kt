@@ -32,6 +32,7 @@ import com.bandwa.openadb.presentation.ui.md_theme_dark_surfaceTint
 import com.bandwa.openadb.presentation.ui.success_500
 import com.bandwa.openadb.preview.CombinedThemePreviews
 import com.bandwa.openadb.service.install.CoreComponent
+import com.bandwa.openadb.service.install.PreflightCheck
 import com.bandwa.openadb.util.Utils
 import com.bandwa.openadb.presentation.ui.LiquidProgressDialog
 
@@ -65,8 +66,13 @@ fun ToolsSettingsScreen(
     fixUDisk: () -> Unit,
 ) {
     val context = LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val scrollState = rememberScrollState()
     var showRepairConfirmDialog by remember { mutableStateOf(false) }
+    // 注入前预检（用户 2026-11-23 m05704 要求）：点「修复」先只读检查一遍，
+    // 用大白话把「能不能修」和「哪里不行」摆出来，再让用户决定。
+    var preflightReport by remember { mutableStateOf<PreflightCheck.Report?>(null) }
+    var preflightRunning by remember { mutableStateOf(false) }
     var repairStatus by remember { mutableStateOf<String?>(null) }
     var repairProgress by remember { mutableStateOf(0f) }
     var repairProgressText by remember { mutableStateOf("") }
@@ -122,6 +128,48 @@ fun ToolsSettingsScreen(
             content = "没能退回原厂组件。可能是系统正忙，或 /system 里没有可用的原厂件。\n\n" +
                 "可以重启车机后再试一次。",
             confirmText = "知道了",
+        )
+    }
+
+    // 预检结果：通过就直接问「要不要开始」，不通过只给「知道了」。
+    // 两种都用同一个对话框，避免用户点两下才看到结论。
+    preflightReport?.let { report ->
+        LiquidDialog(
+            onDismissRequest = { preflightReport = null },
+            title = report.headline,
+            content = report.asText(),
+            confirmText = if (report.canProceed) "开始修复" else "知道了",
+            onConfirm = {
+                preflightReport = null
+                if (report.canProceed) {
+                    repairStatus = "installing"
+                    // 手动修复走与自动安装同一个入口（CoreComponent），只有 force 不同。
+                    CoreComponent.install(
+                        context,
+                        trigger = "手动修复PSA工具箱",
+                        force = true,
+                    ) { result ->
+                        repairFailure = if (result.success) null else result
+                        repairStatus = if (result.success) "completing" else "error"
+                        corePatchedTick++
+                        if (result.success) {
+                            context.getSharedPreferences(Utils.PREFS_NAME, Context.MODE_PRIVATE)
+                                .edit().putBoolean("core_prompt_muted", false).apply()
+                        }
+                    }
+                }
+            },
+            cancelText = if (report.canProceed) "取消" else null,
+            onCancel = if (report.canProceed) ({ preflightReport = null }) else null,
+        )
+    }
+
+    if (preflightRunning) {
+        LiquidProgressDialog(
+            onDismissRequest = {},
+            title = "正在检查车机环境",
+            progress = null,
+            progressText = "只读检查，不会改动任何东西",
         )
     }
 
@@ -419,7 +467,17 @@ fun ToolsSettingsScreen(
 
         SelectionText(text = "修复PSA工具箱异常，若工作正常请勿使用此功能")
         TextButton(text = "修复PSA工具箱") {
-            showRepairConfirmDialog = true
+            preflightRunning = true
+            scope.launch {
+                val report = runCatching { PreflightCheck.run(context) }.getOrNull()
+                preflightRunning = false
+                if (report == null) {
+                    // 预检自己出错不该拦住用户 —— 退回原来的「直接确认」流程。
+                    showRepairConfirmDialog = true
+                } else {
+                    preflightReport = report
+                }
+            }
         }
 
         // 回滚出口（审计 M6）：核心组件是注入进 com.cusc.misc 的，它不在应用管理的

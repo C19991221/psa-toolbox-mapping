@@ -5,9 +5,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Arrangement
@@ -164,6 +166,19 @@ fun FuelLedgerScreen(
         }
 
         Spacer(modifier = Modifier.height(32.dp))
+
+        // 趋势图（用户 2026-11-23 m05704 要求）：只画有「百公里油耗」的那些记录，
+        // 最多取最近 8 段 —— 车机屏横向就 1280dp 左右，再多柱子会挤成线。
+        val trendPoints = remember(uiState.entries, uiState.segments) {
+            uiState.entries
+                .mapNotNull { entry -> uiState.segments[entry.id]?.let { entry to it } }
+                .take(8)
+                .reversed()
+        }
+        if (trendPoints.isNotEmpty()) {
+            FuelTrendChart(points = trendPoints, dateFormat = dateFormat)
+            Spacer(modifier = Modifier.height(32.dp))
+        }
 
         if (uiState.entries.isEmpty()) {
             Text(
@@ -386,6 +401,102 @@ private fun FuelEntryRow(
                 )
             }
         }
+    }
+}
+
+/**
+ * 最近几次的百公里油耗趋势。
+ *
+ * 为什么画柱子而不是折线：柱状图在车机上手指不用对点，一眼能比高低；
+ * 折线图还得给用户解释「线往上走＝更费油」。柱子高度直接就是油耗值，
+ * 柱底再标日期（月/日），柱顶标数值。
+ *
+ * 数据只取「相邻两条加油记录能算出油耗」的那些段（[FuelLedger.Segment]），
+ * 中途跳过的、手动补录的都不参与 —— 那些算不出真实油耗，画上去会误导。
+ */
+@Composable
+private fun FuelTrendChart(
+    points: List<Pair<FuelLedger.Entry, FuelLedger.Segment>>,
+    dateFormat: SimpleDateFormat,
+) {
+    val colors = AppTheme.colors
+    val max = points.maxOf { it.second.per100Km }.coerceAtLeast(1f)
+    // 纵向留 15% 余量，柱子不至于顶到标题。
+    val scaleMax = max * 1.15f
+    val average = points.map { it.second.per100Km }.average().toFloat()
+    val dayFormat = remember(dateFormat) { SimpleDateFormat("M/d", Locale.getDefault()) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "最近油耗趋势",
+                style = AppTheme.typography.titleMedium,
+                color = AppTheme.colors.textColorSecondary,
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = String.format(Locale.getDefault(), "这几段平均 %.1f L/100km", average),
+                style = AppTheme.typography.bodyMedium,
+                color = AppTheme.colors.textColorSecondary,
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        // 柱区固定 200dp 高，柱宽按数量均分；数量最多 8 根（上游已截断）。
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            points.forEach { (entry, segment) ->
+                val ratio = (segment.per100Km / scaleMax).coerceIn(0.02f, 1f)
+                val overAverage = segment.per100Km > average
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Bottom,
+                ) {
+                    Text(
+                        text = String.format(Locale.getDefault(), "%.1f", segment.per100Km),
+                        style = AppTheme.typography.bodyMedium,
+                        color = if (overAverage) colors.textColorError else colors.textColorSuccess,
+                        maxLines = 1,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    // 用 fillMaxHeight(ratio) 撑在底部对齐的行里，柱高＝比例。
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight(ratio)
+                            .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+                            .background(
+                                if (overAverage) {
+                                    colors.textColorError.copy(alpha = 0.75f)
+                                } else {
+                                    colors.colorBrand.copy(alpha = 0.75f)
+                                }
+                            ),
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = dayFormat.format(Date(entry.timestamp)),
+                        style = AppTheme.typography.bodyMedium,
+                        color = AppTheme.colors.textColorSecondary,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "柱高＝这一段路的百公里油耗，红柱表示比这几段平均更费油。",
+            style = AppTheme.typography.bodyMedium,
+            color = AppTheme.colors.textColorSecondary,
+        )
     }
 }
 

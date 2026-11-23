@@ -168,7 +168,8 @@ fun LiquidDialog(
 fun LiquidProgressDialog(
     onDismissRequest: () -> Unit,
     title: String,
-    progress: Float,
+    /** null = 不确定进度（转圈），用于没有百分比可算的场合，比如只读预检。 */
+    progress: Float?,
     progressText: String,
     cancelText: String? = null,
     onCancel: (() -> Unit)? = null,
@@ -209,19 +210,33 @@ fun LiquidProgressDialog(
                         modifier = Modifier.padding(bottom = 24.dp)
                     )
 
-                    LinearProgressIndicator(
-                        progress = { progress },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(12.dp)
-                            .clip(RoundedCornerShape(6.dp)),
-                        color = AppTheme.colors.colorBrand,
-                        trackColor = AppTheme.colors.glassBackgroundColor.copy(alpha = 0.2f),
+                    if (progress == null) {
+                        // 没有百分比可算时用不确定进度条，避免硬画一条停在 0 的条。
+                        // 注意：不确定版的重载只吃 color / trackColor，没有 strokeCap
+                        // 那些参数（加了会报 "Cannot find a parameter"）。
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(12.dp)
+                                .clip(RoundedCornerShape(6.dp)),
+                            color = AppTheme.colors.colorBrand,
+                            trackColor = AppTheme.colors.glassBackgroundColor.copy(alpha = 0.2f),
+                        )
+                    } else {
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(12.dp)
+                                .clip(RoundedCornerShape(6.dp)),
+                            color = AppTheme.colors.colorBrand,
+                            trackColor = AppTheme.colors.glassBackgroundColor.copy(alpha = 0.2f),
 
-                        strokeCap = StrokeCap.Butt,
-                        gapSize = 0.dp,
-                        drawStopIndicator = {}
-                    )
+                            strokeCap = StrokeCap.Butt,
+                            gapSize = 0.dp,
+                            drawStopIndicator = {}
+                        )
+                    }
 
                     Text(
                         text = progressText,
