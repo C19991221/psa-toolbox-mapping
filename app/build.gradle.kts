@@ -22,12 +22,12 @@ android {
         applicationId = "com.bandwa.openadb"
         minSdk = 24
         targetSdk = 25
-        versionCode = 20
+        versionCode = 21
         // 我们自己的分发版本串：在原作者版本号后加 by 天才大熊猫，
         // 便于装到车上后与原作者发布的 5.3.6 一眼区分开。
         // ⚠ 改这里必须同步改 ota/releases/psaboxlite/lasted_version：
         //   VersionUtils 是**字符串相等**比较，两边不一致会让设备永远「有新版本」并反复下载。
-        versionName = "工具箱开发版5.3.12"
+        versionName = "工具箱开发版5.3.13"
         ndk {
             // x86_64 仅用于 Google 官方模拟器（android-car-boot AVD）联调：
             // 构建时加 -PavdAbi 才打包 x86_64，正式包保持 arm64-v8a

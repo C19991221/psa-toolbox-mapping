@@ -191,7 +191,6 @@ fun StorageCleanSection(topPad: Dp = 32.dp) {
     val context = LocalContext.current
     val sharedPrefs = remember { context.getSharedPreferences("MyPrefs", Context.MODE_PRIVATE) }
     var shouldAutoClearSD by remember { mutableStateOf(sharedPrefs.getBoolean("shouldAutoClearSD", false)) }
-    var showCleanConfirm by remember { mutableStateOf(false) }
     var showWhitelistDialog by remember { mutableStateOf(false) }
     var whitelistInfo by remember { mutableStateOf<String?>(null) }
     var enabled by remember { mutableStateOf(StorageClean.enabled(context)) }
@@ -202,25 +201,6 @@ fun StorageCleanSection(topPad: Dp = 32.dp) {
     var resultText by remember { mutableStateOf(StorageClean.lastLine(context)) }
     var busy by remember { mutableStateOf(false) }
     var confirmClean by remember { mutableStateOf(false) }
-
-    // 工具箱自带的「清各应用缓存」：走 CleanStorage（/sdcard 与 Android/data 等），
-    // 与下面的 StorageClean（日志目录、酷我缓存、诊断包）是两套，所以分成两个按钮。
-    if (showCleanConfirm) {
-        LiquidDialog(
-            onDismissRequest = { showCleanConfirm = false },
-            title = "清理缓存确认",
-            content = "会删除 /sdcard 根目录下除「下载 / 文档 / 音乐 / 图片 / 相机 / 影片 / PSA / " +
-                "psa_iptheme / netease / amapauto9 / launcherPic / mtklog / Android」以外的文件夹，" +
-                "并清空各应用的 cache。是否继续？",
-            cancelText = "取消",
-            confirmText = "确认清理",
-            onConfirm = {
-                cleanStorage(context)
-                Toast.makeText(context, "清理缓存成功", Toast.LENGTH_SHORT).show()
-                showCleanConfirm = false
-            },
-        )
-    }
 
     if (showWhitelistDialog) {
         CacheWhitelistDialog(
@@ -241,8 +221,10 @@ fun StorageCleanSection(topPad: Dp = 32.dp) {
         LiquidDialog(
             onDismissRequest = { confirmClean = false },
             title = "清理确认",
-            content = "会把开机日志目录（/data/log_temp、/data/anr、/data/tombstones）清空，" +
-                "并按下面的勾选清理酷我播放缓存与多余的诊断包。不会动你下载的歌和任何设置。是否继续？",
+            content = "一次清两样：① 按勾选清日志目录（/data/log_temp、/data/anr、/data/tombstones）、" +
+                "酷我播放缓存、多余诊断包；② 清 /sdcard 根目录临时文件夹与各应用 cache" +
+                "（下载 / 文档 / 音乐 / 图片 / 相机 / 影片 / PSA / psa_iptheme / netease 都保留，" +
+                "白名单里的应用跳过）。是否继续？",
             cancelText = "取消",
             confirmText = "立即清理",
             onConfirm = {
@@ -255,6 +237,8 @@ fun StorageCleanSection(topPad: Dp = 32.dp) {
     LaunchedEffect(busy) {
         if (!busy) return@LaunchedEffect
         val r = withContext(Dispatchers.IO) { StorageClean.run(context, "手动", true) }
+        // 「立即清理」= 目录清理 + 缓存清理，一次点完；原来那个单独的「清理缓存」按钮已合并进来。
+        withContext(Dispatchers.IO) { runCatching { cleanStorage(context) } }
         resultText = r.detail.ifEmpty { StorageClean.lastLine(context) }
         busy = false
     }
@@ -371,13 +355,11 @@ fun StorageCleanSection(topPad: Dp = 32.dp) {
 
     Text(
         modifier = Modifier.padding(top = 20.dp),
-        text = "工具箱自带的深度清理（清 /sdcard 根目录临时文件夹与各应用 cache，白名单里的应用跳过）",
+        text = "「立即清理」会把上面勾选的目录（日志 / 酷我缓存 / 诊断包 / 其它应用 cache）" +
+            "与 /sdcard 根目录的临时文件夹、各应用 cache 一次清完；白名单里的应用全部跳过。",
         style = AppTheme.typography.bodyMedium,
         color = AppTheme.colors.textColorSecondary,
     )
-    Row(modifier = Modifier.padding(top = 8.dp)) {
-        TextButton(text = "清理缓存") { showCleanConfirm = true }
-    }
 
     if (resultText.isNotEmpty()) {
         Text(
