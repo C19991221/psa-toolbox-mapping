@@ -4,7 +4,6 @@ import android.content.Context
 import android.os.StatFs
 import android.util.Log
 import com.bandwa.openadb.service.BuildConfig
-import com.bandwa.openadb.util.HookState
 import com.bandwa.openadb.util.Utils
 import com.bandwa.openadb.util.apktools.ApkInspector
 import kotlinx.coroutines.Dispatchers
@@ -142,8 +141,8 @@ object PreflightCheck {
         )
         !exists -> Item(
             title = "车机自带的核心组件不见了",
-            detail = "它应该在 $stockPath。可能是被清理软件删掉了，或者这台车机不是这个版本。" +
-                "这种情况修复不了，请联系我们。",
+            detail = "它是这台车机出厂自带的一个系统应用，正常情况下删不掉。" +
+                "可能被清理软件删了，也可能是这台车机的系统版本不一样。",
             status = Status.FAIL,
         )
         else -> Item(
@@ -243,7 +242,7 @@ object PreflightCheck {
             Item(
                 title = "车机组件版本和本软件不匹配",
                 detail = "有 ${missing.size} 个位置在车机上找不到，说明这台车机的系统版本" +
-                    "和本软件不支持的不一样。硬修会失败，请联系我们更新支持。",
+                    "和本软件对不上，这种情况不建议修复。",
                 status = Status.FAIL,
             )
         }
@@ -253,15 +252,10 @@ object PreflightCheck {
 
     private fun currentStateCheck(context: Context): Item {
         val patched = runCatching { ModApk.isPatchedInstall(context, CORE) }.getOrDefault(false)
-        val reported = runCatching { HookState.versionOf(CORE) }.getOrNull()
         return if (patched) {
             Item(
                 title = "这台车机现在是修复过的版本",
-                detail = if (reported.isNullOrBlank()) {
-                    "再修复一次会把现在的替换掉，功能不变。"
-                } else {
-                    "再修复一次会把现在的替换掉，功能不变。"
-                },
+                detail = "再修复一次会把现在的替换掉，功能不变。",
                 status = Status.PASS,
             )
         } else {
