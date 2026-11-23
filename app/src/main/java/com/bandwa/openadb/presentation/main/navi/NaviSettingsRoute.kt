@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bandwa.openadb.component.PageTitle
+import com.bandwa.openadb.component.SectionTitle
 import com.bandwa.openadb.component.SelectionText
 import com.bandwa.openadb.component.SwitchGroup
 import com.bandwa.openadb.component.TextButton
@@ -123,20 +124,14 @@ fun NaviSettingsScreen(
         // ── DiPlay 相关（仪表投屏 + 旋钮音量）──────────────────────────────
         // 这两项都是为车载 CarPlay（DiPlay, com.shihab.diplay）服务的，
         // 2026-11-23 用户要求归到一类，原来「旋钮音量」在「音乐助手」页。
-        SelectionText(
-            modifier = Modifier.padding(top = 40.dp).wrapContentSize(),
-            text = "DiPlay 相关",
-            showInfoButton = true,
-            infoClickListen = {
-                infoDialogContent = "这两项都是给车载 CarPlay（DiPlay，com.shihab.diplay）配合用的：\n\n" +
-                    "· 仪表投屏：让 DiPlay / CarLife / HiCar 投到仪表上的画面不被高德的空报文清掉；\n" +
-                    "· 旋钮音量：导航播报时中控旋钮改调导航音量而不是媒体音量。\n\n" +
-                    "两项都默认关闭，关着的时候车机行为与出厂完全一致。"
-            }
-        )
+        //
+        // 标题用 SectionTitle（L2：21sp + 粗体 + 主色 + 下划线），不能用 SelectionText ——
+        // 后者是 L3 条目标题（18sp + 次级灰），和下面两个开关的标题同一个样式，
+        // 用户一眼看不出这是「分类」（2026-11-23 用户指出「不同级别颜色没区分」）。
+        SectionTitle(modifier = Modifier.padding(top = 40.dp), text = "DiPlay 相关")
 
         SelectionText(
-            modifier = Modifier.padding(top = 32.dp).wrapContentSize(),
+            modifier = Modifier.padding(top = 20.dp).wrapContentSize(),
             text = "仪表投屏",
             showInfoButton = true,
             infoClickListen = {
