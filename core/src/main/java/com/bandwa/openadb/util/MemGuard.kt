@@ -108,8 +108,20 @@ object MemGuard {
         return if (l.isEmpty()) "（空：不会清理任何包）" else l.joinToString("、")
     }
 
-    fun isNever(pkg: String?): Boolean {
-        if (pkg.isNullOrEmpty()) return true
+    /**
+     * 白名单：用户在「维护诊断 → 白名单管理」里加的应用。
+     * 与存储清共用一个集合（`MyPrefs/cacheWhitelist`）——含义就是「这些应用不要动」。
+     */
+    fun isWhitelisted(ctx: Context, pkg: String?): Boolean {
+        if (pkg.isNullOrEmpty()) return false
+        return runCatching {
+            ctx.getSharedPreferences("MyPrefs", Context.MODE_PRIVATE)
+                .getStringSet("cacheWhitelist", emptySet())
+                ?.contains(pkg) == true
+        }.getOrDefault(false)
+    }
+
+    fun isNever(pkg: String?): Boolean {        if (pkg.isNullOrEmpty()) return true
         if (pkg == "com.psa.keyconfig") return true
         return NEVER_PREFIX.any { pkg.startsWith(it) }
     }
@@ -526,6 +538,7 @@ object MemGuard {
         if (pkg.isNullOrEmpty()) return "空包名"
         if (pkg == ctx.packageName) return "本应用"
         if (isNever(pkg)) return neverReason(pkg)
+        if (isWhitelisted(ctx, pkg)) return "在白名单里"
         if (fgPkg != null && fgPkg == pkg) return "前台（用户正在使用）"
         val ai = runCatching { ctx.packageManager.getApplicationInfo(pkg, 0) }.getOrNull()
             ?: return "未安装"

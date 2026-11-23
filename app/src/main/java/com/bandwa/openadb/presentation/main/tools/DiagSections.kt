@@ -85,48 +85,14 @@ fun MemGuardSection(topPad: Dp = 32.dp) {
     var level2 by remember { mutableStateOf(MemGuard.level2(context)) }
     var resultText by remember { mutableStateOf(MemGuard.lastLine(context)) }
     var busy by remember { mutableStateOf(false) }
-    var editFloor by remember { mutableStateOf(false) }
-    var editList by remember { mutableStateOf(false) }
+    var showWhitelist by remember { mutableStateOf(false) }
     var confirmClean by remember { mutableStateOf(false) }
+    val sharedPrefs = remember { context.getSharedPreferences("MyPrefs", Context.MODE_PRIVATE) }
 
-    if (editFloor) {
-        LiquidInputDialog(
-            onDismissRequest = { editFloor = false },
-            title = "自动清理触发线",
-            hint = "可用内存低于这个百分比时自动清理（1~60）",
-            initialValue = MemGuard.availFloor(context).toString(),
-            onConfirm = { input ->
-                val v = input.trim().toIntOrNull()
-                if (v == null || v !in 1..60) {
-                    Toast.makeText(context, "请输入 1~60 的整数", Toast.LENGTH_SHORT).show()
-                } else {
-                    MemGuard.setAvailFloor(context, v)
-                    Toast.makeText(context, "已设为 ${MemGuard.triggerLine(context)}", Toast.LENGTH_SHORT).show()
-                }
-                editFloor = false
-            },
-        )
-    }
-
-    if (editList) {
-        var all by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
-        LaunchedEffect(Unit) {
-            all = withContext(Dispatchers.IO) { memCleanCandidates(context) }
-        }
-        AppPickerTwoPane(
-            title = "内存清理名单",
-            hint = "右边这些应用会在自动清理时被结束进程（前台正在用的不会被清）。" +
-                "系统应用和本应用永远不会被清，不在名单里的应用不动。",
-            leftTitle = "可选应用",
-            rightTitle = "会被清理的应用",
-            all = all,
-            selected = MemGuard.list(context).toSet(),
-            onToggle = { pkg, add ->
-                val next = if (add) (MemGuard.list(context) + pkg).distinct()
-                else MemGuard.list(context) - pkg
-                MemGuard.setList(context, next)
-            },
-            onDismissRequest = { editList = false },
+    if (showWhitelist) {
+        CacheWhitelistDialog(
+            themeManager = LocalThemeManager.current,
+            onDismissRequest = { showWhitelist = false },
         )
     }
 
@@ -134,7 +100,7 @@ fun MemGuardSection(topPad: Dp = 32.dp) {
         LiquidDialog(
             onDismissRequest = { confirmClean = false },
             title = "清理确认",
-            content = "将按名单清理后台进程，前台正在用的应用不会被清。是否继续？",
+            content = "会结束后台应用进程（白名单里的应用、前台正在用的应用都会跳过）。是否继续？",
             cancelText = "取消",
             confirmText = "立即清理",
             onConfirm = {
@@ -188,7 +154,8 @@ fun MemGuardSection(topPad: Dp = 32.dp) {
 
     Text(
         modifier = Modifier.padding(top = 16.dp),
-        text = "触发线：${MemGuard.triggerLine(context)}　·　名单：${MemGuard.listText(context)}",
+        text = "触发线：${MemGuard.triggerLine(context)}　·　白名单：" +
+            "${sharedPrefs.getStringSet("cacheWhitelist", emptySet())?.size ?: 0} 个应用（这些应用不会被清理）",
         style = AppTheme.typography.bodyMedium,
         color = AppTheme.colors.textColorSecondary,
     )
@@ -197,8 +164,7 @@ fun MemGuardSection(topPad: Dp = 32.dp) {
         modifier = Modifier.padding(top = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        TextButton(text = "改触发线") { editFloor = true }
-        TextButton(text = "改名单") { editList = true }
+        TextButton(text = "白名单管理") { showWhitelist = true }
         TextButton(text = if (busy) "清理中…" else "立即清理") {
             if (!busy) confirmClean = true
         }
@@ -225,7 +191,6 @@ fun StorageCleanSection(topPad: Dp = 32.dp) {
     val context = LocalContext.current
     val sharedPrefs = remember { context.getSharedPreferences("MyPrefs", Context.MODE_PRIVATE) }
     var shouldAutoClearSD by remember { mutableStateOf(sharedPrefs.getBoolean("shouldAutoClearSD", false)) }
-    var editFloor by remember { mutableStateOf(false) }
     var showCleanConfirm by remember { mutableStateOf(false) }
     var showWhitelistDialog by remember { mutableStateOf(false) }
     var whitelistInfo by remember { mutableStateOf<String?>(null) }
@@ -253,25 +218,6 @@ fun StorageCleanSection(topPad: Dp = 32.dp) {
                 cleanStorage(context)
                 Toast.makeText(context, "清理缓存成功", Toast.LENGTH_SHORT).show()
                 showCleanConfirm = false
-            },
-        )
-    }
-
-    if (editFloor) {
-        LiquidInputDialog(
-            onDismissRequest = { editFloor = false },
-            title = "自动清理触发线",
-            hint = "存储可用低于这个百分比时自动清理（1~90）",
-            initialValue = StorageClean.availFloor(context).toString(),
-            onConfirm = { input ->
-                val v = input.trim().toIntOrNull()
-                if (v == null || v !in 1..90) {
-                    Toast.makeText(context, "请输入 1~90 的整数", Toast.LENGTH_SHORT).show()
-                } else {
-                    StorageClean.setAvailFloor(context, v)
-                    Toast.makeText(context, "已设为 ${StorageClean.triggerLine(context)}", Toast.LENGTH_SHORT).show()
-                }
-                editFloor = false
             },
         )
     }
@@ -417,8 +363,7 @@ fun StorageCleanSection(topPad: Dp = 32.dp) {
         modifier = Modifier.padding(top = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        TextButton(text = "改触发线") { editFloor = true }
-        TextButton(text = "改名单") { showWhitelistDialog = true }
+        TextButton(text = "白名单管理") { showWhitelistDialog = true }
         TextButton(text = if (busy) "清理中…" else "立即清理") {
             if (!busy) confirmClean = true
         }
