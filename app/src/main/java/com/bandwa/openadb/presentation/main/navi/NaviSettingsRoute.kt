@@ -43,6 +43,7 @@ fun NaviSettingsRoute(
         uiState = uiState,
         onActivateAmap = viewModel::activateAmap,
         onNaviKeepChange = viewModel::setNaviKeep,
+        onVolumeNavChange = viewModel::setVolumeNav,
     )
 }
 
@@ -51,6 +52,7 @@ fun NaviSettingsScreen(
     uiState: NaviSettingsUIState,
     onActivateAmap: () -> Unit,
     onNaviKeepChange: (Boolean) -> Unit = {},
+    onVolumeNavChange: (Boolean) -> Unit = {},
 ) {
     val scrollState = rememberScrollState()
 
@@ -118,8 +120,23 @@ fun NaviSettingsScreen(
             showActivationConfirm = true
         }
 
+        // ── DiPlay 相关（仪表投屏 + 旋钮音量）──────────────────────────────
+        // 这两项都是为车载 CarPlay（DiPlay, com.shihab.diplay）服务的，
+        // 2026-11-23 用户要求归到一类，原来「旋钮音量」在「音乐助手」页。
         SelectionText(
             modifier = Modifier.padding(top = 40.dp).wrapContentSize(),
+            text = "DiPlay 相关",
+            showInfoButton = true,
+            infoClickListen = {
+                infoDialogContent = "这两项都是给车载 CarPlay（DiPlay，com.shihab.diplay）配合用的：\n\n" +
+                    "· 仪表投屏：让 DiPlay / CarLife / HiCar 投到仪表上的画面不被高德的空报文清掉；\n" +
+                    "· 旋钮音量：导航播报时中控旋钮改调导航音量而不是媒体音量。\n\n" +
+                    "两项都默认关闭，关着的时候车机行为与出厂完全一致。"
+            }
+        )
+
+        SelectionText(
+            modifier = Modifier.padding(top = 32.dp).wrapContentSize(),
             text = "仪表投屏",
             showInfoButton = true,
             infoClickListen = {
@@ -147,6 +164,46 @@ fun NaviSettingsScreen(
                 check = false,
                 title = "保持仪表投屏，不被高德空报文清掉",
                 description = "不可用：公共服务还没有注入这一条补丁，请先点「维护诊断 → 修复PSA工具箱」",
+                isEnable = false,
+                onCheckedChange = {},
+            )
+        }
+
+        SelectionText(
+            modifier = Modifier.padding(top = 40.dp).wrapContentSize(),
+            text = "导航播报时旋钮调导航音量",
+            showInfoButton = true,
+            infoClickListen = {
+                infoDialogContent = "车机的中控音量旋钮不产生按键事件，由公共服务自己判断该调哪一组音量 ——" +
+                    "判断依据是「当前谁占着音频焦点」。\n\n" +
+                    "车载 CarPlay（DiPlay）播放导航播报时用的是降低背景音量的方式，音频焦点一直握在它手里，" +
+                    "于是播报期间转旋钮调的是媒体音量，导航声音大小一点没变。\n\n" +
+                    "打开这个开关后，只要满足两个条件，旋钮就会改调导航音量：\n" +
+                    "1. 当前音频焦点是 DiPlay（com.shihab.diplay）；\n" +
+                    "2. DiPlay 自己写了 Settings.Global 的 diplay_nav_prompt = 1，表示「我正在播报」。\n\n" +
+                    "⚠ 必须配合 DiPlay 客户端：这个开关只负责在车机侧改判音量组，" +
+                    "「现在是否在播报」这个信号只有 DiPlay 知道，得由它来写。" +
+                    "没装 DiPlay、或 DiPlay 不写这个值，开关打开也不会有任何变化。\n\n" +
+                    "开关默认关闭。仅部分车机系统版本支持（公共服务里要有对应的注入点）。"
+            }
+        )
+
+        if (uiState.volumeNavAvailable) {
+            SwitchGroup(
+                check = uiState.volumeNav,
+                title = "导航播报时，中控旋钮调导航音量而不是媒体音量",
+                description = if (uiState.volumeNav) {
+                    "已开启：需 DiPlay 客户端配合写播报状态，否则不生效"
+                } else {
+                    "已关闭：与原厂行为一致"
+                },
+                onCheckedChange = onVolumeNavChange,
+            )
+        } else {
+            SwitchGroup(
+                check = false,
+                title = "导航播报时，中控旋钮调导航音量而不是媒体音量",
+                description = "不可用：本车机版本没有这条补丁的注入点，或公共服务还没注入",
                 isEnable = false,
                 onCheckedChange = {},
             )

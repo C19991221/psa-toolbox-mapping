@@ -10,13 +10,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -31,7 +29,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bandwa.openadb.component.PageTitle
 import com.bandwa.openadb.component.SelectionText
-import com.bandwa.openadb.component.SwitchGroup
 import com.bandwa.openadb.component.TextButton
 import com.bandwa.openadb.presentation.ui.AppTheme
 import com.bandwa.openadb.presentation.ui.LiquidDialog
@@ -52,15 +49,11 @@ fun AppsSettingsRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    // 注入是异步的：每次回到本页都重读一次，否则注入完看到还是旧的「灰」。
-    LaunchedEffect(Unit) { viewModel.refresh() }
-
     AppsSettingsScreen(
         uiState = uiState,
         fixHiCar = viewModel::fixHiCar,
         fixCarLife = viewModel::fixCarLife,
         fixMediaPlugin = viewModel::installMediaPlugin,
-        onVolumeNavChange = viewModel::setVolumeNav,
     )
 }
 
@@ -70,7 +63,6 @@ fun AppsSettingsScreen(
     fixHiCar: (String) -> Unit,
     fixCarLife: () -> Unit,
     fixMediaPlugin: () -> Unit = {},
-    onVolumeNavChange: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
@@ -195,45 +187,7 @@ fun AppsSettingsScreen(
             }
         }
 
-        SelectionText(
-            modifier = Modifier.padding(top = 40.dp).wrapContentSize(),
-            text = "导航播报时旋钮调导航音量",
-            showInfoButton = true,
-            infoClickListen = {
-                infoDialogContent = "车机的中控音量旋钮不产生按键事件，由公共服务自己判断该调哪一组音量 ——" +
-                    "判断依据是「当前谁占着音频焦点」。\n\n" +
-                    "车载 CarPlay（DiPlay）播放导航播报时用的是降低背景音量的方式，音频焦点一直握在它手里，" +
-                    "于是播报期间转旋钮调的是媒体音量，导航声音大小一点没变。\n\n" +
-                    "打开这个开关后，只要满足两个条件，旋钮就会改调导航音量：\n" +
-                    "1. 当前音频焦点是 DiPlay（com.shihab.diplay）；\n" +
-                    "2. DiPlay 自己写了 Settings.Global 的 diplay_nav_prompt = 1，表示「我正在播报」。\n\n" +
-                    "⚠ 必须配合 DiPlay 客户端：这个开关只负责在车机侧改判音量组，" +
-                    "「现在是否在播报」这个信号只有 DiPlay 知道，得由它来写。" +
-                    "没装 DiPlay、或 DiPlay 不写这个值，开关打开也不会有任何变化。\n\n" +
-                    "开关默认关闭。仅部分车机系统版本支持（公共服务里要有对应的注入点）。"
-            }
-        )
-
-        if (uiState.volumeNavAvailable) {
-            SwitchGroup(
-                check = uiState.volumeNav,
-                title = "导航播报时，中控旋钮调导航音量而不是媒体音量",
-                description = if (uiState.volumeNav) {
-                    "已开启：需 DiPlay 客户端配合写播报状态，否则不生效"
-                } else {
-                    "已关闭：与原厂行为一致"
-                },
-                onCheckedChange = onVolumeNavChange,
-            )
-        } else {
-            SwitchGroup(
-                check = false,
-                title = "导航播报时，中控旋钮调导航音量而不是媒体音量",
-                description = "不可用：本车机版本没有这条补丁的注入点，或公共服务还没注入",
-                isEnable = false,
-                onCheckedChange = {},
-            )
-        }
+        // 「导航播报时旋钮调导航音量」已搬到「导航助手 → DiPlay 相关」页（2026-11-23 用户要求）。
     }
 }
 

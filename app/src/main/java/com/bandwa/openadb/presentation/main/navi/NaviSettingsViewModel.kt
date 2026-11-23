@@ -43,7 +43,16 @@ class NaviSettingsViewModel @Inject constructor(
     fun refresh() = viewModelScope.launch {
         val available = withContext(Dispatchers.IO) { PsaExt.naviKeepAvailable(context) }
         val on = withContext(Dispatchers.IO) { PsaExt.naviKeepOn() }
-        _uiState.update { it.copy(naviKeepAvailable = available, naviKeep = on) }
+        val volAvailable = withContext(Dispatchers.IO) { PsaExt.volumeNavAvailable(context) }
+        val volOn = withContext(Dispatchers.IO) { PsaExt.volumeNavOn() }
+        _uiState.update {
+            it.copy(
+                naviKeepAvailable = available,
+                naviKeep = on,
+                volumeNavAvailable = volAvailable,
+                volumeNav = volOn,
+            )
+        }
     }
 
     fun setNaviKeep(on: Boolean) {
@@ -51,6 +60,16 @@ class NaviSettingsViewModel @Inject constructor(
         // 写失败就不改界面上的状态，免得开关位置骗人。
         if (written) {
             _uiState.update { it.copy(naviKeep = on) }
+        } else {
+            Toast.makeText(context, "写属性失败，这台车机不让改", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /** 导航播报时旋钮调导航音量（2026-11-23 从「音乐助手」页搬过来）。 */
+    fun setVolumeNav(on: Boolean) {
+        val written = PsaExt.setFlag(PsaExt.PROP_VOLUME_NAV, on)
+        if (written) {
+            _uiState.update { it.copy(volumeNav = on) }
         } else {
             Toast.makeText(context, "写属性失败，这台车机不让改", Toast.LENGTH_SHORT).show()
         }

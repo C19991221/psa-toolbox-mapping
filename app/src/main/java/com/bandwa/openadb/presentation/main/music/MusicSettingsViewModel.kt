@@ -5,7 +5,6 @@ import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bandwa.openadb.config.RemoteEndpoints
-import com.bandwa.openadb.util.PsaExt
 import com.bandwa.openadb.util.Utils
 import com.bandwa.openadb.util.Utils.isNetSystemUsable
 import com.bandwa.openadb.util.VersionUtils.isRemoteVersionDiff
@@ -13,12 +12,10 @@ import com.bandwa.openadb.service.install.ApkInstaller
 import com.bandwa.openadb.service.install.RemoteApkSpec
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
@@ -28,27 +25,8 @@ class MusicSettingsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(MusicSettingsUIState())
     val uiState = _uiState.asStateFlow()
 
-    init {
-        refresh()
-    }
-
-    /**
-     * 每次进页面都重新读一遍（注入是异步的，注入完回到本页要立刻看到开关可用）。
-     */
-    fun refresh() = viewModelScope.launch {
-        val available = withContext(Dispatchers.IO) { PsaExt.volumeNavAvailable(context) }
-        val on = withContext(Dispatchers.IO) { PsaExt.volumeNavOn() }
-        _uiState.update { it.copy(volumeNavAvailable = available, volumeNav = on) }
-    }
-
-    fun setVolumeNav(on: Boolean) {
-        val written = PsaExt.setFlag(PsaExt.PROP_VOLUME_NAV, on)
-        if (written) {
-            _uiState.update { it.copy(volumeNav = on) }
-        } else {
-            Toast.makeText(context, "写属性失败，这台车机不让改", Toast.LENGTH_SHORT).show()
-        }
-    }
+    // 「导航播报时旋钮调导航音量」已搬到「导航助手 → DiPlay 相关」页（2026-11-23 用户要求），
+    // 那一侧的读写由 NaviSettingsViewModel 负责，这里不再重复。
 
     fun fixHiCar(brand: String) {
         viewModelScope.launch {
