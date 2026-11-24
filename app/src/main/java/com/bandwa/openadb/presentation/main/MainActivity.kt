@@ -30,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -62,6 +63,7 @@ import com.bandwa.openadb.presentation.ui.PSAHelperThemePreview
 import com.bandwa.openadb.presentation.ui.ThemeManager
 import com.bandwa.openadb.preview.CombinedThemePreviews
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import com.bandwa.openadb.service.ToolBoxServiceWrapper
 import com.bandwa.openadb.service.ToolBoxServiceWrapper.Companion.ACTION_START_PROXY_AIR_CONDITION
@@ -145,10 +147,41 @@ fun HomeScreen(activity: Activity) {
     }
     var coreInstallProgress by remember { mutableStateOf(0f) }
     var coreInstallProgressText by remember { mutableStateOf("") }
+    // 桌面这次做了什么（没动就是空串，界面不提）。
+    var coreLauncherNote by remember { mutableStateOf("") }
+
+    // 修复前要不要问「桌面一起修吗」：只有桌面还是原厂时才有意义。
+    // 已经是我们的桌面 → 跟着更新，不问；是用户自己装的改版 → 不碰，也不问。
+    var showLauncherChoice by remember { mutableStateOf(false) }
+    val homeScope = rememberCoroutineScope()
+
+    // 自动安装与手动修复走同一个入口（CoreComponent），只有 force 与桌面选项不同。
+    val startCoreInstall: (com.bandwa.openadb.service.install.CoreComponent.LauncherMode) -> Unit =
+        { launcherMode ->
+            coreInstallStatus = "installing"
+            com.bandwa.openadb.service.install.CoreComponent.install(
+                context,
+                trigger = "首次打开或版本不匹配",
+                force = false,
+                launcherMode = launcherMode,
+            ) { result ->
+                // result.success=false 且 result.rolledBack=true 表示装了但起不来、
+                // 已自动退回原厂（审计 H2 的兜底），界面上要说清楚。
+                coreInstallFailure = if (result.success) null else result
+                coreLauncherNote = result.launcherNote
+                coreInstallStatus = if (result.success) "completing" else "error"
+                if (result.success) {
+                    // 修复成功后解除「暂不修复」的静音，下次版本再变还会提示。
+                    sharedPrefs.edit().putBoolean(CORE_PROMPT_MUTED_KEY, false).apply()
+                }
+            }
+        }
 
     LaunchedEffect(showTermsDialog) {
         if (!showTermsDialog) {
-            val compatMode = sharedPrefs.getBoolean(COMPAT_MODE_KEY, false)
+            // 开发版兼容模式默认打开（用户 m06708）：不自动查核心组件、不自动弹修复框，
+            // 修复一律由用户在「维护诊断 → 修复PSA工具箱」里手动触发。
+            val compatMode = sharedPrefs.getBoolean(COMPAT_MODE_KEY, true)
             // 用户主动「暂不修复」过就不再每次启动都堵一次（审计 M6：以前这个框
             // 既不能取消也不能关，退回原厂之后每次开都弹）。手动修复成功后这个
             // 标记会被清掉，所以下次版本不匹配时照样会提示。
@@ -169,20 +202,19 @@ fun HomeScreen(activity: Activity) {
                 "修复过程大约几分钟，期间请勿操作车机。",
             confirmText = "开始修复",
             onConfirm = {
-                coreInstallStatus = "installing"
-                // 自动安装走与手动「修复」同一个入口（CoreComponent），只有 force 不同。
-                com.bandwa.openadb.service.install.CoreComponent.install(
-                    context,
-                    trigger = "首次打开或版本不匹配",
-                    force = false,
-                ) { result ->
-                    // result.success=false 且 result.rolledBack=true 表示装了但起不来、
-                    // 已自动退回原厂（审计 H2 的兜底），界面上要说清楚。
-                    coreInstallFailure = if (result.success) null else result
-                    coreInstallStatus = if (result.success) "completing" else "error"
-                    if (result.success) {
-                        // 修复成功后解除「暂不修复」的静音，下次版本再变还会提示。
-                        sharedPrefs.edit().putBoolean(CORE_PROMPT_MUTED_KEY, false).apply()
+                // 先把这个框收起来，后面可能还要弹「桌面要不要一起修复」，
+                // 两个框叠在一起看着像卡住了。
+                showCoreInstallDialog = false
+                // 先看桌面是什么状态：原厂才问「桌面一起修吗」，改过的桌面不碰。
+                homeScope.launch {
+                    val info = com.bandwa.openadb.service.install.LauncherSupport
+                        .detect(context, force = true)
+                    if (info.needsInjectPrompt) {
+                        showLauncherChoice = true
+                    } else {
+                        startCoreInstall(
+                            com.bandwa.openadb.service.install.CoreComponent.LauncherMode.AUTO
+                        )
                     }
                 }
             },
@@ -192,6 +224,32 @@ fun HomeScreen(activity: Activity) {
                 // 手动修复成功、或在维护诊断里点修复成功，都会把这个标记清掉。
                 sharedPrefs.edit().putBoolean(CORE_PROMPT_MUTED_KEY, true).apply()
                 showCoreInstallDialog = false
+            },
+        )
+    }
+    // 桌面还是原厂时才问这一句（用户 m06708）：要不要连桌面一起修。
+    // 不修桌面 → 按键映射、360 这些公共服务照样能用，只是换壁纸 / 调卡片透明度用不了。
+    if (showLauncherChoice) {
+        LiquidDialog(
+            onDismissRequest = { },
+            title = "桌面要不要一起修复",
+            content = "桌面自定义（换壁纸、调卡片透明度、卡片缩放删除）需要改造车机桌面。" +
+                "\n\n" +
+                "一起修复：上面这些功能都能用，桌面会由工具箱接管。\n" +
+                "只修公共服务：按键映射、360 全景等照常可用，换壁纸和卡片透明度暂时用不了。",
+            confirmText = "一起修复",
+            onConfirm = {
+                showLauncherChoice = false
+                startCoreInstall(
+                    com.bandwa.openadb.service.install.CoreComponent.LauncherMode.INJECT
+                )
+            },
+            cancelText = "只修公共服务",
+            onCancel = {
+                showLauncherChoice = false
+                startCoreInstall(
+                    com.bandwa.openadb.service.install.CoreComponent.LauncherMode.SKIP
+                )
             },
         )
     }
@@ -241,10 +299,17 @@ fun HomeScreen(activity: Activity) {
                 onDismissRequest = {
                     coreInstallStatus = null
                     coreInstallFailure = null
+                    coreLauncherNote = ""
                     showCoreInstallDialog = false
                 },
                 title = "修复成功",
-                content = "车机环境已修复，工具箱的全部功能可以正常使用了。",
+                content = buildString {
+                    append("车机环境已修复，工具箱的全部功能可以正常使用了。")
+                    if (coreLauncherNote.isNotBlank()) {
+                        append("\n\n")
+                        append(coreLauncherNote)
+                    }
+                },
                 confirmText = "好的",
             )
         }

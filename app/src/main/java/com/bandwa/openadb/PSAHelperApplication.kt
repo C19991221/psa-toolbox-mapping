@@ -2,6 +2,7 @@ package com.bandwa.openadb
 
 import android.app.Application
 import com.bandwa.openadb.util.CleanDefaults
+import com.bandwa.openadb.util.CompatDefaults
 import com.bandwa.openadb.util.CrashCollect
 import com.bandwa.openadb.util.Utils.PREFS_NAME
 import com.bandwa.openadb.util.apk.ApkDownloader
@@ -22,6 +23,9 @@ class PSAHelperApplication : Application() {
 
         // 清理类开关的一次性默认值迁移：首次安装 / 下次在线更新都跑一遍，全部置「关」。
         runCatching { CleanDefaults.applyIfNeeded(this) }
+
+        // 兼容模式的一次性默认值迁移：开发版统一默认打开（用户 m06708）。
+        runCatching { CompatDefaults.applyIfNeeded(this) }
 
         // 未捕获异常只落盘，随后原样交回上一个处理器，不改变崩溃行为
         runCatching { CrashCollect.installHandler(this) }

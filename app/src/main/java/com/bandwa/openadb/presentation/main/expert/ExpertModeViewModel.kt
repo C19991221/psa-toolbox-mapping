@@ -40,7 +40,7 @@ class ExpertModeViewModel @Inject constructor(
         val mtkLogEnabled = withContext(Dispatchers.IO) { isMtkLogEnable() }
         _uiState.update {
             it.copy(
-                isCompatMode = corePrefs.getBoolean(COMPAT_MODE_KEY, false),
+                isCompatMode = corePrefs.getBoolean(COMPAT_MODE_KEY, true),
                 isAppAutoGrant = corePrefs.getBoolean(APP_AUTO_GRANT_KEY, true),
                 isMtkLogEnabled = mtkLogEnabled,
                 shouldRunUserSh = localPrefs.getBoolean(KEY_RUN_USER_SH, false),

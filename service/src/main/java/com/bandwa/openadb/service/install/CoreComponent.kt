@@ -45,8 +45,30 @@ object CoreComponent {
     const val TAG = "CoreComponent"
     const val CORE_PACKAGE = "com.cusc.misc"
 
+    /**
+     * 修复时怎么处理车机桌面（换壁纸、卡片透明度那套）。
+     *
+     * 用户 2026-11-24（m06708）要求：「修复时提示桌面的修复是注入还是不注入，
+     * 不注入就只修复公共服务」。所以「要不要动桌面」必须由用户在界面上决定，
+     * 而这个决定只在**桌面还没被改过**的时候才值得问 —— 已经是我们改过的
+     * 就直接跟着更新，已经是别人改过的（如 GenPanda）就一律别碰。
+     */
+    enum class LauncherMode {
+        /** 按检测结果自动决定：我们的就更新、别人的跳过、原厂的不动。 */
+        AUTO,
+
+        /** 用户明确要求一起修复桌面（桌面是原厂时才有意义）。 */
+        INJECT,
+
+        /** 用户选择「只修复公共服务」。 */
+        SKIP,
+    }
+
     /** 装完等宿主回报的上限。正常 2~5 秒就回来了，30 秒足够覆盖慢启动。 */
     private const val VERIFY_TIMEOUT_MS = 30_000L
+
+    /** 桌面那份包约 29 MB，打包 + 安装比核心组件慢，给足时间。 */
+    private const val LAUNCHER_TIMEOUT_MS = 180_000L
 
     private const val POLL_MS = 500L
 
@@ -55,6 +77,8 @@ object CoreComponent {
         val success: Boolean,
         val rolledBack: Boolean = false,
         val message: String = "",
+        /** 桌面那一步的说明；空串表示这次没动桌面。 */
+        val launcherNote: String = "",
     )
 
     /** 载荷指纹：写进日志，用于比对「自动」与「手动」两次注入是否同一套内容。 */
@@ -74,11 +98,13 @@ object CoreComponent {
         context: Context,
         trigger: String,
         force: Boolean,
+        launcherMode: LauncherMode = LauncherMode.AUTO,
         onComplete: (Result) -> Unit,
     ) {
         Log.i(
             TAG,
-            "install core: trigger=$trigger force=$force ${payloadFingerprint(context)}",
+            "install core: trigger=$trigger force=$force launcher=${launcherMode.name} " +
+                payloadFingerprint(context),
         )
         val reportsBefore = HookState.reportCount(CORE_PACKAGE)
         ModApk.packageModResult(context, CORE_PACKAGE, force = force) { outcome ->
@@ -89,12 +115,87 @@ object CoreComponent {
             when (outcome) {
                 // 跳过 = 什么都没装、宿主也没被杀，绝不能拿它做「装完自检」，
                 // 否则会把一个本来正常的组件误判成起不来、白回滚一次。
-                ModApk.Outcome.Skipped -> onComplete(Result(true, message = "已是最新，无需重装"))
+                // 但桌面那一步还是要走：核心组件早就好了、用户可能就是来修桌面的。
+                ModApk.Outcome.Skipped -> {
+                    CoroutineScope(Dispatchers.IO).launch {
+                        LauncherSupport.invalidate()
+                        val note = applyLauncher(context, launcherMode)
+                        withContext(Dispatchers.Main) {
+                            onComplete(Result(true, message = "已是最新，无需重装", launcherNote = note))
+                        }
+                    }
+                }
                 ModApk.Outcome.Failed -> onComplete(Result(false, message = "打包或安装失败"))
-                ModApk.Outcome.Installed -> verify(context, trigger, reportsBefore, onComplete)
+                ModApk.Outcome.Installed -> verify(context, trigger, reportsBefore, launcherMode, onComplete)
             }
         }
     }
+
+    /**
+     * 核心组件确认没问题之后，按用户的意愿处理桌面。
+     *
+     * 规则（用户 m06708 定）：
+     * - [LauncherMode.SKIP]：一概不动。
+     * - 桌面已经是别人改过的（GenPanda 那种）：**也不动**，哪怕用户点了「一起修复」——
+     *   覆盖别人的改版等于把用户自己挑好的桌面刷掉，这个代价比「少一个桌面功能」大。
+     * - 桌面是我们自己的：跟着更新到当前版本。用户点没点「一起修复」都更新，因为那是
+     *   我们自己装上去的东西，不跟着更新反而会出现「桌面功能忽然失效」。
+     * - 桌面是原厂：只有用户明确 [LauncherMode.INJECT] 时才注入。
+     *
+     * @return 一句话说明桌面做了什么；空串表示没动（界面就不提这件事）。
+     */
+    private suspend fun applyLauncher(
+        context: Context,
+        mode: LauncherMode,
+    ): String {
+        if (mode == LauncherMode.SKIP) {
+            Log.i(TAG, "launcher: skipped by user choice")
+            return ""
+        }
+        val info = LauncherSupport.detect(context, force = true)
+        return when (info.state) {
+            LauncherSupport.State.FOREIGN_PATCHED -> {
+                Log.i(TAG, "launcher: foreign patched build, leave it alone")
+                "桌面用的是你自己的改版，没有动它"
+            }
+            LauncherSupport.State.OURS_CURRENT -> {
+                Log.i(TAG, "launcher: ours and current, nothing to do")
+                ""
+            }
+            LauncherSupport.State.OURS_STALE -> deployLauncher(context, force = true)
+            LauncherSupport.State.STOCK -> if (mode == LauncherMode.INJECT) {
+                deployLauncher(context, force = true)
+            } else {
+                Log.i(TAG, "launcher: stock and user chose not to inject")
+                ""
+            }
+        }
+    }
+
+    /** 真去打补丁 + 装桌面；回来一句话说明结果。 */
+    private suspend fun deployLauncher(context: Context, force: Boolean): String {
+        val done = withTimeoutSuspend(LAUNCHER_TIMEOUT_MS) { cb ->
+            ModApk.packageMod(
+                context,
+                LauncherSupport.LAUNCHER_PACKAGE,
+                force = force,
+                onComplete = cb,
+            )
+        }
+        LauncherSupport.invalidate()
+        return if (done) {
+            // 桌面是常驻进程，不重启就一直跑旧的。
+            runCatching {
+                ShellUtils.execArgs(listOf("am", "force-stop", LauncherSupport.LAUNCHER_PACKAGE))
+            }
+            Log.i(TAG, "launcher: deployed")
+            "桌面自定义功能已一起修复"
+        } else {
+            Log.e(TAG, "launcher: deploy failed")
+            "核心组件已修好，但桌面没有修成功，壁纸和卡片透明度暂时用不了"
+        }
+    }
+
 
     /**
      * 退回 `/system` 原厂件（界面上的「恢复原厂核心组件」）。
@@ -111,20 +212,33 @@ object CoreComponent {
         context: Context,
         trigger: String,
         reportsBefore: Long,
+        launcherMode: LauncherMode,
         onComplete: (Result) -> Unit,
     ) {
         CoroutineScope(Dispatchers.IO).launch {
             when (val check = awaitHookReport(context, reportsBefore)) {
                 Check.Passed -> {
                     Log.i(TAG, "post-install check passed: trigger=$trigger")
-                    withContext(Dispatchers.Main) { onComplete(Result(true)) }
+                    LauncherSupport.invalidate()
+                    val note = applyLauncher(context, launcherMode)
+                    withContext(Dispatchers.Main) {
+                        onComplete(Result(true, launcherNote = note))
+                    }
                 }
                 Check.ProcessAlive -> {
                     // 宿主进程活着但桥接没连上：多半是工具箱这边的问题（桥接服务没起来），
                     // 不是包坏了。这种情况**绝不能回滚** —— 回滚一个能跑的包比不检查更糟。
                     Log.w(TAG, "post-install check inconclusive: host alive without hook report")
+                    LauncherSupport.invalidate()
+                    val note = applyLauncher(context, launcherMode)
                     withContext(Dispatchers.Main) {
-                        onComplete(Result(true, message = "组件已启动，但未收到回报，请稍后确认功能是否正常"))
+                        onComplete(
+                            Result(
+                                success = true,
+                                message = "组件已启动，但未收到回报，请稍后确认功能是否正常",
+                                launcherNote = note,
+                            )
+                        )
                     }
                 }
                 Check.Dead -> {

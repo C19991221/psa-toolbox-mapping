@@ -82,12 +82,54 @@ fun ToolsSettingsScreen(
     }
     var showRestoreConfirmDialog by remember { mutableStateOf(false) }
     var restoreStatus by remember { mutableStateOf<String?>(null) }
+    // 修复前问一句「桌面一起修吗」——只有桌面还是原厂时才有意义（用户 m06708）。
+    // 已经是我们的桌面就跟着更新，是用户自己装的改版就不碰，这两种都不问。
+    var showLauncherChoice by remember { mutableStateOf(false) }
+    var pendingRepairTrigger by remember { mutableStateOf("手动修复PSA工具箱") }
+    // 这次桌面做了什么（空串 = 没动，界面不提）。
+    var launcherNote by remember { mutableStateOf("") }
     // 当前核心组件是不是注入版。PackageManager 是 IPC，放到 IO 线程查；
     // 回滚成功和修复成功后都要重算，所以用 tick 触发。
     var corePatched by remember { mutableStateOf(false) }
     var corePatchedTick by remember { mutableStateOf(0) }
     LaunchedEffect(corePatchedTick) {
         corePatched = withContext(Dispatchers.IO) { CoreComponent.isPatched(context) }
+    }
+
+    // 真正开始修：把 launcherMode 一路带下去，桌面那一步由 CoreComponent 自己判。
+    val startRepair: (String, CoreComponent.LauncherMode) -> Unit = { trigger, mode ->
+        repairStatus = "installing"
+        CoreComponent.install(
+            context,
+            trigger = trigger,
+            force = true,
+            launcherMode = mode,
+        ) { result ->
+            repairFailure = if (result.success) null else result
+            launcherNote = result.launcherNote
+            repairStatus = if (result.success) "completing" else "error"
+            corePatchedTick++
+            if (result.success) {
+                // 修复成功解除启动时的「暂不修复」静音（键在 MainActivity 里定义，
+                // 这里直接用同一个字符串，避免为一个常量跨模块暴露）。
+                context.getSharedPreferences(Utils.PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit().putBoolean("core_prompt_muted", false).apply()
+            }
+        }
+    }
+
+    // 修之前先看桌面：原厂的问一句要不要一起修；已经改过的别问，按检测结果自动处理。
+    val askThenRepair: (String) -> Unit = { trigger ->
+        pendingRepairTrigger = trigger
+        scope.launch {
+            val info = com.bandwa.openadb.service.install.LauncherSupport
+                .detect(context, force = true)
+            if (info.needsInjectPrompt) {
+                showLauncherChoice = true
+            } else {
+                startRepair(trigger, CoreComponent.LauncherMode.AUTO)
+            }
+        }
     }
 
     if (showRestoreConfirmDialog) {
@@ -142,21 +184,8 @@ fun ToolsSettingsScreen(
             onConfirm = {
                 preflightReport = null
                 if (report.canProceed) {
-                    repairStatus = "installing"
                     // 手动修复走与自动安装同一个入口（CoreComponent），只有 force 不同。
-                    CoreComponent.install(
-                        context,
-                        trigger = "手动修复PSA工具箱",
-                        force = true,
-                    ) { result ->
-                        repairFailure = if (result.success) null else result
-                        repairStatus = if (result.success) "completing" else "error"
-                        corePatchedTick++
-                        if (result.success) {
-                            context.getSharedPreferences(Utils.PREFS_NAME, Context.MODE_PRIVATE)
-                                .edit().putBoolean("core_prompt_muted", false).apply()
-                        }
-                    }
+                    askThenRepair("手动修复PSA工具箱")
                 }
             },
             cancelText = if (report.canProceed) "取消" else null,
@@ -181,18 +210,30 @@ fun ToolsSettingsScreen(
             cancelText = "取消",
             confirmText = "立即修复",
             onConfirm = {
-                repairStatus = "installing"
                 showRepairConfirmDialog = false
-                // 手动修复走与自动安装同一个入口（CoreComponent），只有 force 不同。
-                CoreComponent.install(
-                    context,
-                    trigger = "手动修复PSA工具箱",
-                    force = true,
-                ) { result ->
-                    repairFailure = if (result.success) null else result
-                    repairStatus = if (result.success) "completing" else "error"
-                    corePatchedTick++
-                }
+                askThenRepair("手动修复PSA工具箱")
+            },
+        )
+    }
+
+    // 桌面还是原厂时才问这一句（用户 m06708）。
+    if (showLauncherChoice) {
+        LiquidDialog(
+            onDismissRequest = { },
+            title = "桌面要不要一起修复",
+            content = "桌面自定义（换壁纸、调卡片透明度、卡片缩放删除）需要改造车机桌面。" +
+                "\n\n" +
+                "一起修复：上面这些功能都能用，桌面会由工具箱接管。\n" +
+                "只修公共服务：按键映射、360 全景等照常可用，换壁纸和卡片透明度暂时用不了。",
+            confirmText = "一起修复",
+            onConfirm = {
+                showLauncherChoice = false
+                startRepair(pendingRepairTrigger, CoreComponent.LauncherMode.INJECT)
+            },
+            cancelText = "只修公共服务",
+            onCancel = {
+                showLauncherChoice = false
+                startRepair(pendingRepairTrigger, CoreComponent.LauncherMode.SKIP)
             },
         )
     }
@@ -241,7 +282,13 @@ fun ToolsSettingsScreen(
         LiquidDialog(
             onDismissRequest = { repairStatus = null },
             title = "修复成功",
-            content = "核心组件已成功修复，所有功能已恢复正常。",
+            content = buildString {
+                append("核心组件已成功修复，所有功能已恢复正常。")
+                if (launcherNote.isNotBlank()) {
+                    append("\n\n")
+                    append(launcherNote)
+                }
+            },
             confirmText = "好的",
         )
     }
@@ -270,6 +317,7 @@ fun ToolsSettingsScreen(
                     force = true,
                 ) { result ->
                     repairFailure = if (result.success) null else result
+                    launcherNote = result.launcherNote
                     repairStatus = if (result.success) "completing" else "error"
                     corePatchedTick++
                     if (result.success) {

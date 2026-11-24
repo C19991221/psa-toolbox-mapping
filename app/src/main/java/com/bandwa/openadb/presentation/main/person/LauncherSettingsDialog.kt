@@ -55,13 +55,11 @@ import com.bandwa.openadb.presentation.ui.PSAHelperTheme
 import com.bandwa.openadb.presentation.ui.ThemeManager
 import com.bandwa.openadb.presentation.ui.shapes
 import com.bandwa.openadb.service.install.ModApk
-import com.bandwa.openadb.util.HookState
-import com.bandwa.hook.Hook
+import com.bandwa.openadb.service.install.LauncherSupport
 import com.bandwa.openadb.util.ShellUtils
 import com.bandwa.openadb.util.Utils
 import com.bandwa.openadb.util.Utils.PREFS_NAME
 import com.bandwa.openadb.service.ServiceLauncher.showQRCode
-import com.bandwa.openadb.util.apktools.ApkInspector
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -89,6 +87,21 @@ fun LauncherSettingsDialog(
     var deployProgress by remember { mutableStateOf(0f) }
     var deployProgressText by remember { mutableStateOf("") }
 
+    // 桌面能不能换壁纸 / 调透明度，取决于装的是什么桌面（原厂 / 我们注入的 / 用户自己的改版）。
+    // 以前这里只查 dex 里有没有我们的 Hook 类，用户那份 GenPanda 桌面会被误判成「没部署」，
+    // 一点就弹「即将开始部署」，装下去等于把他自己挑的桌面刷掉（用户 m06708）。
+    // 桌面是用户自己装的改版（比如 GenPanda 那份）：能用，也不归我们管，
+    // 所以不弹框打断，只在页面里挂一行说明，避免用户以为是工具箱改的。
+    var launcherInfo by remember { mutableStateOf<LauncherSupport.Info?>(null) }
+    var launcherProbing by remember { mutableStateOf(true) }
+    var showUnavailableDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        launcherProbing = true
+        launcherInfo = LauncherSupport.detect(context)
+        launcherProbing = false
+    }
+
     var currentOpacity by remember {
         mutableStateOf(context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString("card_alpha", null).let {
             when (it) {
@@ -113,6 +126,7 @@ fun LauncherSettingsDialog(
                 deploymentStatus = "deploying"
                 ModApk.packageMod(context, "com.android.launcher") { success ->
                     scope.launch {
+                        LauncherSupport.invalidate()
                         if (success) {
                             deploymentStatus = "completing"
                             delay(1000)
@@ -127,6 +141,22 @@ fun LauncherSettingsDialog(
             },
         )
     }
+
+    // 桌面是原厂：换壁纸 / 调透明度都用不了。直接说清楚，不要引导用户以为点一下就能修
+    // （用户 m06708：「如果没修补桌面软件，当点击桌面自定义时就提示没有修复桌面相关无法使用」）。
+    if (showUnavailableDialog) {
+        LiquidDialog(
+            onDismissRequest = { showUnavailableDialog = false },
+            title = "桌面自定义用不了",
+            content = "这台车机现在用的是原厂桌面，没有换壁纸和调卡片透明度的能力。\n\n" +
+                "需要先在「维护诊断 → 修复PSA工具箱」里修复桌面相关功能，" +
+                "修复时选择「公共服务和桌面一起修复」。",
+            confirmText = "知道了",
+        )
+    }
+
+    // 桌面是用户自己装的改版（比如 GenPanda 那份）：能用，但不归我们管，
+    // 任何自动部署都不要碰它 —— 在页面里挂一行说明即可，不弹框打断。
 
     LaunchedEffect(deploymentStatus) {
         when (deploymentStatus) {
@@ -244,7 +274,19 @@ fun LauncherSettingsDialog(
                             ) {
                                 SelectionText(
                                     modifier = Modifier.padding(top = 16.dp),
-                                    text = "可自由更换桌面壁纸，支持一键恢复原厂壁纸\n若设置不生效，请恢复一次原厂壁纸"
+                                    text = when (launcherInfo?.state) {
+                                        // 桌面是用户自己装的改版：能用，但不是我们装的，
+                                        // 说清楚一句，免得用户以为是工具箱改的。
+                                        LauncherSupport.State.FOREIGN_PATCHED ->
+                                            "当前桌面是你自己安装的改版，换壁纸和卡片透明度都能用\n" +
+                                                "工具箱不会覆盖它；若换壁纸没效果，请先换回原厂桌面再试"
+                                        // 原厂桌面：直接告诉他这两项暂时用不了，以及怎么才能用。
+                                        LauncherSupport.State.STOCK ->
+                                            "当前是原厂桌面，换壁纸和卡片透明度暂不可用\n" +
+                                                "到「维护诊断 → 修复PSA工具箱」选择「一起修复」后可用"
+                                        else ->
+                                            "可自由更换桌面壁纸，支持一键恢复原厂壁纸\n若设置不生效，请恢复一次原厂壁纸"
+                                    }
                                 )
 
                                 picQrCodeBitmap?.let {
@@ -271,35 +313,22 @@ fun LauncherSettingsDialog(
                                 ) {
                                     TextButton(
                                         modifier = Modifier.width(220.dp),
-                                        text = "更改桌面壁纸"
+                                        text = if (launcherProbing) "正在检查桌面…" else "更改桌面壁纸"
                                     ) {
-                                        val sharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                                        if (sharedPreferences.getBoolean(Utils.COMPAT_MODE_KEY, false)) {
-                                            showQRCode(context, "pic") { bitmap ->
-                                                picQrCodeBitmap = bitmap
-                                            }
-                                        } else {
-                                            val packageInfo = try {
-                                                context.packageManager.getPackageInfo("com.android.launcher", 0)
-                                            } catch (_: Exception) {
-                                                null
-                                            }
-
-                                            val apkPath = packageInfo?.applicationInfo?.sourceDir
-
-                                            val reportedVersion = HookState.versionOf("com.android.launcher")
-                                            val needsDeploy = if (reportedVersion != null) {
-                                                reportedVersion != Hook.LAUNCHER_VERSION
-                                            } else {
-                                                !ApkInspector.containsHookClasses(apkPath) || apkPath == "/system/app/PSA_Launcher/PSA_Launcher.apk"
-                                            }
-
-                                            if (needsDeploy) {
+                                        if (launcherProbing) return@TextButton
+                                        val compatMode = context
+                                            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                                            .getBoolean(Utils.COMPAT_MODE_KEY, true)
+                                        val info = launcherInfo
+                                        when {
+                                            // 原厂桌面：没有这个能力，直接说清楚，不要引导用户去「部署」。
+                                            info == null || !info.canCustomize -> showUnavailableDialog = true
+                                            // 我们的旧版：问一句要不要更新。
+                                            info.state == LauncherSupport.State.OURS_STALE && !compatMode ->
                                                 showDeploymentConfirm = true
-                                            } else {
-                                                showQRCode(context, "pic") { bitmap ->
-                                                    picQrCodeBitmap = bitmap
-                                                }
+                                            // 自己的最新版、或用户自己装的改版（能力齐全）：直接开二维码。
+                                            else -> showQRCode(context, "pic") { bitmap ->
+                                                picQrCodeBitmap = bitmap
                                             }
                                         }
                                     }
@@ -319,7 +348,12 @@ fun LauncherSettingsDialog(
 
                                 Box {
                                     TextButton(text = currentOpacity) {
-                                        expanded = !expanded
+                                        val info = launcherInfo
+                                        if (info == null || !info.canCustomize) {
+                                            showUnavailableDialog = true
+                                        } else {
+                                            expanded = !expanded
+                                        }
                                     }
 
                                     LiquidDropdownMenu(

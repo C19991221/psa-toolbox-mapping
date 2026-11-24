@@ -92,6 +92,7 @@ object PreflightCheck {
         items += payloadCheck(context)
         items += versionCheck(context, stockPath, stockExists)
         items += currentStateCheck(context)
+        items += launcherCheck(context)
         Report(items).also { log(it) }
     }
 
@@ -262,6 +263,44 @@ object PreflightCheck {
             Item(
                 title = "这台车机现在是原厂版本",
                 detail = "修复会装上一份改过的组件，按键映射等功能才会生效。",
+                status = Status.PASS,
+            )
+        }
+    }
+
+    // ── 6. 桌面（只影响桌面自定义，不影响修复本身） ─────────────────────
+
+    /**
+     * 桌面那一层是**可选**的：写 × 会让人以为修不了，所以最差也只给「！」，
+     * 由界面上的「桌面要不要一起修复」那一问去决定做不做。
+     */
+    private suspend fun launcherCheck(context: Context): Item {
+        val info = runCatching { LauncherSupport.detect(context, force = true) }.getOrNull()
+            ?: return Item(
+                title = "没查到桌面状态",
+                detail = "不影响修复。桌面自定义（换壁纸、调卡片透明度）可能用不了。",
+                status = Status.WARN,
+            )
+        return when (info.state) {
+            LauncherSupport.State.STOCK -> Item(
+                title = "桌面是原厂版本",
+                detail = "修复时可以选择连桌面一起修，换壁纸和卡片透明度才能用；" +
+                    "只修公共服务的话这两项暂时用不了。",
+                status = Status.WARN,
+            )
+            LauncherSupport.State.OURS_CURRENT -> Item(
+                title = "桌面已经是最新版本",
+                detail = "换壁纸、调卡片透明度都可以直接用。",
+                status = Status.PASS,
+            )
+            LauncherSupport.State.OURS_STALE -> Item(
+                title = "桌面是旧版本",
+                detail = "修复时会顺便把桌面更新到当前版本。",
+                status = Status.PASS,
+            )
+            LauncherSupport.State.FOREIGN_PATCHED -> Item(
+                title = "桌面是你自己装的改版",
+                detail = "已经带换壁纸和调卡片透明度的能力，修复不会覆盖它。",
                 status = Status.PASS,
             )
         }
